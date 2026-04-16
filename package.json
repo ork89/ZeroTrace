@@ -1,0 +1,24 @@
+{
+  "name": "zerotrace",
+  "version": "1.0.0",
+  "description": "privacy oriented ad-blocker",
+  "keywords": [
+    "ads",
+    "ad-blocker"
+  ],
+  "license": "ISC",
+  "author": "Ori M. K.",
+  "type": "commonjs",
+  "main": "build-rules.ts",
+  "scripts": {
+    "build": "tsx build-rules.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "echo \"No tests yet\""
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
