@@ -56,8 +56,8 @@
     return target;
   }
 
-  function deepStripPlayerPayload(payload, depth = 0) {
-    if (!payload || typeof payload !== 'object' || depth > 4) {
+  function deepStripPlayerPayload(payload) {
+    if (!payload || typeof payload !== 'object') {
       return payload;
     }
 
@@ -182,7 +182,7 @@
           });
           Object.defineProperty(this, 'response', {
             configurable: true,
-            get: () => stripped,
+            get: () => this.responseType === 'json' ? JSON.parse(stripped) : stripped,
           });
         } catch {
           // Ignore non-JSON or already-overridden payloads.

@@ -213,7 +213,7 @@ function resetTabStats(tabId) {
 }
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (!settingsReady || !isNetworkEnabled() || info.status !== 'loading' || !tab.url || !/^https?:/i.test(tab.url)) {
+  if (!settingsReady || !isMasterEnabled() || info.status !== 'loading' || !tab.url || !/^https?:/i.test(tab.url)) {
     return;
   }
 

@@ -486,19 +486,9 @@
     setTimeout(observePlayer, 1500);
   }
 
-  // Intercept YouTube SPA navigation events
-  const pushState = history.pushState;
-  history.pushState = function (...args) {
-    pushState.apply(this, args);
-    setTimeout(onNavigate, 0);
-  };
-
-  const replaceState = history.replaceState;
-  history.replaceState = function (...args) {
-    replaceState.apply(this, args);
-    setTimeout(onNavigate, 0);
-  };
-
+  // Use standard DOM events for SPA navigation detection.
+  // Content scripts run in isolated world so history patching would not intercept
+  // the page's main-world navigation calls and is therefore ineffective.
   window.addEventListener('popstate', () => setTimeout(onNavigate, 0));
 
   // Also listen for yt-navigate-finish (YouTube-specific event)
