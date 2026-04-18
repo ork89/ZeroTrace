@@ -1,0 +1,26 @@
+{
+  "permissions": ["declarativeNetRequest", "scripting", "tabs"],
+  "host_permissions": ["*://*.youtube.com/*", "*://*.googlevideo.com/*", "*://*.doubleclick.net/*", "*://*.googlesyndication.com/*", "*://*.googleadservices.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["inject-main-world.js", "youtube-content-fallback.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["youtube-main-world.js"],
+      "matches": ["*://*.youtube.com/*"]
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "yt_hard_blocks",
+        "enabled": true,
+        "path": "dnr/youtube-hard-blocks.json"
+      }
+    ]
+  }
+}
