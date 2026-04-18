@@ -182,7 +182,7 @@
           });
           Object.defineProperty(this, 'response', {
             configurable: true,
-            get: () => this.responseType === 'json' ? JSON.parse(stripped) : stripped,
+            get: () => (this.responseType === 'json' ? JSON.parse(stripped) : stripped),
           });
         } catch {
           // Ignore non-JSON or already-overridden payloads.
