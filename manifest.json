@@ -2,10 +2,12 @@
   "manifest_version": 3,
   "name": "ZeroTrace – Ad & Tracker Blocker",
   "version": "1.0.0",
-  "permissions": ["declarativeNetRequest", "scripting", "tabs", "webRequest"],
+  "permissions": ["declarativeNetRequest", "scripting", "storage", "tabs", "webRequest"],
   "action": {
-    "default_title": "ZeroTrace – Ad & Tracker Blocker"
+    "default_title": "ZeroTrace – Ad & Tracker Blocker",
+    "default_popup": "popup.html"
   },
+  "options_page": "options.html",
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
@@ -14,6 +16,17 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["youtube-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["youtube-ads.js"],
       "run_at": "document_start"
     }
   ],
