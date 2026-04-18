@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZeroTrace Quick Controls</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <section class="popup-card popup-hero" aria-labelledby="popup-title">
+        <div>
+          <p class="eyebrow">ZeroTrace</p>
+          <h1 id="popup-title">Quick controls</h1>
+          <p id="popup-summary" class="popup-summary">Protection is active across your browsing session.</p>
+          <p id="popup-host" class="popup-host">Current site: this tab</p>
+        </div>
+        <div id="popup-master-pill" class="popup-pill" data-state="on">Live</div>
+      </section>
+
+      <section class="popup-card" aria-labelledby="popup-live-title">
+        <div class="section-heading">
+          <div>
+            <p class="panel-label">Available now</p>
+            <h2 id="popup-live-title">Protection toggles</h2>
+          </div>
+        </div>
+
+        <div class="toggle-list">
+          <label class="setting-row setting-row-primary" for="popup-enabled">
+            <span class="setting-copy">
+              <span class="setting-title">Enable ZeroTrace</span>
+              <span class="setting-description">Turns current protection behavior on or off.</span>
+            </span>
+            <span class="toggle-wrap">
+              <input id="popup-enabled" type="checkbox" />
+              <span class="toggle-visual" aria-hidden="true"></span>
+            </span>
+          </label>
+
+          <label class="setting-row" for="popup-network">
+            <span class="setting-copy">
+              <span class="setting-title">Network blocking</span>
+              <span class="setting-description">Ruleset-based request blocking.</span>
+            </span>
+            <span class="toggle-wrap">
+              <input id="popup-network" type="checkbox" />
+              <span class="toggle-visual" aria-hidden="true"></span>
+            </span>
+          </label>
+
+          <label class="setting-row" for="popup-cosmetic">
+            <span class="setting-copy">
+              <span class="setting-title">Cosmetic filtering</span>
+              <span class="setting-description">Hides page clutter after load.</span>
+            </span>
+            <span class="toggle-wrap">
+              <input id="popup-cosmetic" type="checkbox" />
+              <span class="toggle-visual" aria-hidden="true"></span>
+            </span>
+          </label>
+
+          <label class="setting-row" for="popup-badge">
+            <span class="setting-copy">
+              <span class="setting-title">Badge count</span>
+              <span class="setting-description">Shows blocked totals on the toolbar icon.</span>
+            </span>
+            <span class="toggle-wrap">
+              <input id="popup-badge" type="checkbox" />
+              <span class="toggle-visual" aria-hidden="true"></span>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="popup-card" aria-labelledby="popup-site-title">
+        <div class="section-heading">
+          <div>
+            <p class="panel-label">Coming soon</p>
+            <h2 id="popup-site-title">Per-session controls</h2>
+          </div>
+          <span class="feature-pill">UI preview</span>
+        </div>
+
+        <div class="disabled-actions" aria-describedby="popup-site-note">
+          <button type="button" class="ghost-button" disabled>Pause extension</button>
+          <button type="button" class="ghost-button" disabled>Disable on current site</button>
+        </div>
+
+        <p id="popup-site-note" class="preview-note">
+          These controls are intentionally visible but unavailable in this task. They stay disabled so the popup
+          previews future behavior without implying support today.
+        </p>
+      </section>
+
+      <div class="popup-footer">
+        <button type="button" id="open-options-btn" class="footer-button">Open full settings</button>
+        <p id="popup-status" class="status" aria-live="polite"></p>
+      </div>
+    </main>
+
+    <script src="settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
