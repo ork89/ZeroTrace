@@ -1,5 +1,174 @@
 const tabStats = new Map();
 
+const DEFAULT_SETTINGS = {
+  'zt.enabled': true,
+  'zt.networkBlockingEnabled': true,
+  'zt.cosmeticFilteringEnabled': true,
+  'zt.badgeEnabled': true,
+};
+
+const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
+const SETTINGS_MESSAGE_TYPE = 'zt-settings-updated';
+const DEFAULT_ACTION_TITLE = 'ZeroTrace – Ad & Tracker Blocker';
+const storageApi = (() => {
+  try {
+    return chrome.storage || null;
+  } catch {
+    return null;
+  }
+})();
+const hasStorageApi = Boolean(storageApi?.local);
+
+const manifestRuleResources = chrome.runtime.getManifest().declarative_net_request?.rule_resources || [];
+const allRulesetIds = manifestRuleResources.map((resource) => resource.id);
+const defaultEnabledRulesetIds = manifestRuleResources
+  .filter((resource) => resource.enabled)
+  .map((resource) => resource.id);
+
+let settingsReady = false;
+let currentSettings = { ...DEFAULT_SETTINGS };
+
+function normalizeSettings(raw) {
+  const next = { ...DEFAULT_SETTINGS };
+
+  for (const key of SETTINGS_KEYS) {
+    const value = raw?.[key];
+    if (typeof value === 'boolean') {
+      next[key] = value;
+    }
+  }
+
+  return next;
+}
+
+function isMasterEnabled(settings = currentSettings) {
+  return settings['zt.enabled'];
+}
+
+function isNetworkEnabled(settings = currentSettings) {
+  return isMasterEnabled(settings) && settings['zt.networkBlockingEnabled'];
+}
+
+function isCosmeticEnabled(settings = currentSettings) {
+  return isMasterEnabled(settings) && settings['zt.cosmeticFilteringEnabled'];
+}
+
+function isBadgeEnabled(settings = currentSettings) {
+  return isMasterEnabled(settings) && settings['zt.badgeEnabled'];
+}
+
+async function getStorageSettings() {
+  if (!hasStorageApi) {
+    return {};
+  }
+
+  return new Promise((resolve) => {
+    storageApi.local.get(SETTINGS_KEYS, (result) => {
+      resolve(result || {});
+    });
+  });
+}
+
+async function setStorageSettings(values) {
+  if (!hasStorageApi) {
+    return;
+  }
+
+  return new Promise((resolve) => {
+    storageApi.local.set(values, () => {
+      resolve();
+    });
+  });
+}
+
+async function applyNetworkRulesetState(settings = currentSettings) {
+  const shouldEnableNetwork = isNetworkEnabled(settings);
+  const enableRulesetIds = shouldEnableNetwork ? defaultEnabledRulesetIds : [];
+  const disableRulesetIds = shouldEnableNetwork
+    ? allRulesetIds.filter((id) => !defaultEnabledRulesetIds.includes(id))
+    : allRulesetIds;
+
+  if (!enableRulesetIds.length && !disableRulesetIds.length) {
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    chrome.declarativeNetRequest.updateEnabledRulesets(
+      {
+        enableRulesetIds,
+        disableRulesetIds,
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        resolve();
+      },
+    );
+  });
+}
+
+function clearBadgeForTab(tabId) {
+  chrome.action.setBadgeText({ tabId, text: '' });
+  chrome.action.setTitle({ tabId, title: DEFAULT_ACTION_TITLE });
+}
+
+async function clearBadgesForAllTabs() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (typeof tab.id === 'number') {
+          clearBadgeForTab(tab.id);
+        }
+      }
+
+      resolve();
+    });
+  });
+}
+
+function broadcastSettings(settings = currentSettings) {
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (typeof tab.id !== 'number') {
+        continue;
+      }
+
+      chrome.tabs.sendMessage(tab.id, {
+        type: SETTINGS_MESSAGE_TYPE,
+        settings,
+      });
+    }
+  });
+}
+
+async function loadSettings() {
+  const storedSettings = await getStorageSettings();
+  currentSettings = normalizeSettings(storedSettings);
+  settingsReady = true;
+  await applyNetworkRulesetState(currentSettings);
+  if (!isBadgeEnabled(currentSettings)) {
+    await clearBadgesForAllTabs();
+  }
+}
+
+async function applySettingsChanges(changedValues) {
+  currentSettings = normalizeSettings({
+    ...currentSettings,
+    ...changedValues,
+  });
+
+  await applyNetworkRulesetState(currentSettings);
+
+  if (!isBadgeEnabled(currentSettings)) {
+    await clearBadgesForAllTabs();
+  }
+
+  broadcastSettings(currentSettings);
+}
+
 function getStats(tabId) {
   if (!tabStats.has(tabId)) {
     tabStats.set(tabId, {
@@ -17,6 +186,11 @@ function getTotal(stats) {
 }
 
 function updateBadge(tabId) {
+  if (!settingsReady || !isBadgeEnabled()) {
+    clearBadgeForTab(tabId);
+    return;
+  }
+
   const stats = getStats(tabId);
   const total = getTotal(stats);
   const badgeText = total > 999 ? '999+' : total > 0 ? String(total) : '';
@@ -39,7 +213,7 @@ function resetTabStats(tabId) {
 }
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.status !== 'loading' || !tab.url || !/^https?:/i.test(tab.url)) {
+  if (!settingsReady || !isMasterEnabled() || info.status !== 'loading' || !tab.url || !/^https?:/i.test(tab.url)) {
     return;
   }
 
@@ -100,7 +274,35 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== 'zerotrace-cosmetic-applied') {
+  if (!message) {
+    return;
+  }
+
+  if (message.type === SETTINGS_MESSAGE_TYPE) {
+    applySettingsChanges(message.settings || {})
+      .then(() => {
+        sendResponse?.({ ok: true });
+      })
+      .catch(() => {
+        sendResponse?.({ ok: false });
+      });
+    return true;
+  }
+
+  if (message.type === 'zt-reset-settings') {
+    setStorageSettings(DEFAULT_SETTINGS)
+      .then(() => applySettingsChanges(DEFAULT_SETTINGS))
+      .then(() => {
+        sendResponse?.({ ok: true });
+      })
+      .catch(() => {
+        sendResponse?.({ ok: false });
+      });
+    return true;
+  }
+
+  if (message.type !== 'zerotrace-cosmetic-applied' || !settingsReady || !isCosmeticEnabled()) {
+    sendResponse?.({ ok: true });
     return;
   }
 
@@ -117,7 +319,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.webRequest.onErrorOccurred.addListener(
   (details) => {
-    if (details.tabId < 0 || details.error !== 'net::ERR_BLOCKED_BY_CLIENT') {
+    if (!settingsReady || !isNetworkEnabled() || details.tabId < 0 || details.error !== 'net::ERR_BLOCKED_BY_CLIENT') {
       return;
     }
 
@@ -127,3 +329,35 @@ chrome.webRequest.onErrorOccurred.addListener(
   },
   { urls: ['<all_urls>'] },
 );
+
+if (storageApi?.onChanged) {
+  storageApi.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') {
+      return;
+    }
+
+    const nextValues = {};
+    let hasRelevantChange = false;
+
+    for (const key of SETTINGS_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(changes, key)) {
+        continue;
+      }
+
+      hasRelevantChange = true;
+      nextValues[key] = changes[key].newValue;
+    }
+
+    if (!hasRelevantChange) {
+      return;
+    }
+
+    applySettingsChanges(nextValues).catch(() => {
+      // ignore storage change failures to keep runtime stable
+    });
+  });
+}
+
+loadSettings().catch(() => {
+  settingsReady = true;
+});

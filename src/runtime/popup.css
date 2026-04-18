@@ -1,0 +1,264 @@
+:root {
+  color-scheme: light;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --bg: linear-gradient(180deg, #f7f2e8 0%, #eee3d4 100%);
+  --panel: rgba(255, 251, 246, 0.9);
+  --panel-border: rgba(77, 53, 24, 0.14);
+  --text: #1f2420;
+  --muted: #5e645e;
+  --accent: #145f58;
+  --accent-strong: #0d463f;
+  --accent-soft: rgba(20, 95, 88, 0.12);
+  --warn-soft: rgba(154, 110, 40, 0.12);
+  --warn-text: #7c5b1e;
+  --shadow: 0 20px 40px rgba(61, 43, 20, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 360px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.popup-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.popup-card,
+.popup-footer {
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.popup-card {
+  padding: 16px;
+}
+
+.popup-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(13, 70, 63, 0.95), rgba(9, 50, 45, 0.94));
+  color: #f5f4ed;
+}
+
+.eyebrow,
+.panel-label {
+  margin: 0 0 8px;
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.popup-hero .eyebrow,
+.popup-hero .popup-summary {
+  color: rgba(245, 244, 237, 0.78);
+}
+
+.popup-hero h1,
+.section-heading h2 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.popup-hero h1 {
+  font-size: 1.55rem;
+}
+
+.popup-summary,
+.popup-host,
+.preview-note,
+.setting-description,
+.status {
+  line-height: 1.5;
+}
+
+.popup-summary {
+  margin: 8px 0 0;
+}
+
+.popup-host {
+  margin: 8px 0 0;
+  color: rgba(245, 244, 237, 0.78);
+  font-size: 0.92rem;
+}
+
+.popup-pill,
+.feature-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.popup-pill {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f7f4ec;
+}
+
+.popup-pill[data-state='off'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.feature-pill {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+
+.toggle-list {
+  display: grid;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(77, 53, 24, 0.1);
+  cursor: pointer;
+}
+
+.setting-row-primary {
+  border-top: 0;
+}
+
+.setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.setting-title {
+  font-weight: 600;
+}
+
+.setting-description,
+.preview-note,
+.status,
+.panel-label {
+  color: var(--muted);
+}
+
+.toggle-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 32px;
+}
+
+.toggle-wrap input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-visual {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(77, 53, 24, 0.16);
+}
+
+.toggle-visual::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fffdf8;
+  box-shadow: 0 4px 10px rgba(21, 29, 26, 0.16);
+  transition: transform 140ms ease;
+}
+
+.toggle-wrap input:checked + .toggle-visual {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+.toggle-wrap input:checked + .toggle-visual::after {
+  transform: translateX(20px);
+}
+
+.toggle-wrap input:focus-visible + .toggle-visual,
+.footer-button:focus-visible,
+.ghost-button:focus-visible {
+  outline: 3px solid rgba(20, 95, 88, 0.22);
+  outline-offset: 3px;
+}
+
+.toggle-wrap input:disabled + .toggle-visual {
+  opacity: 0.56;
+}
+
+.disabled-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ghost-button,
+.footer-button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 600;
+}
+
+.ghost-button {
+  background: rgba(255, 255, 255, 0.76);
+  color: rgba(31, 36, 32, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(77, 53, 24, 0.12);
+  cursor: not-allowed;
+}
+
+.popup-footer {
+  padding: 12px;
+}
+
+.footer-button {
+  width: 100%;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #f7f4ec;
+}
+
+.status {
+  min-height: 1.25em;
+  margin: 10px 2px 0;
+  font-size: 0.9rem;
+}

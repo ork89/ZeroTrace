@@ -1,6 +1,61 @@
 (() => {
   const STYLE_ID = 'zerotrace-cosmetic-style';
   const EMPTY_RULES = { globalSelectors: [], domainToChunk: {} };
+  const DEFAULT_SETTINGS = {
+    'zt.enabled': true,
+    'zt.networkBlockingEnabled': true,
+    'zt.cosmeticFilteringEnabled': true,
+    'zt.badgeEnabled': true,
+  };
+  const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
+  const storageApi = (() => {
+    try {
+      return chrome.storage || null;
+    } catch {
+      return null;
+    }
+  })();
+  const hasStorageApi = Boolean(storageApi?.local);
+
+  let currentSettings = { ...DEFAULT_SETTINGS };
+  let observer = null;
+  let rafPending = false;
+
+  function normalizeSettings(raw) {
+    const next = { ...DEFAULT_SETTINGS };
+
+    for (const key of SETTINGS_KEYS) {
+      const value = raw?.[key];
+      if (typeof value === 'boolean') {
+        next[key] = value;
+      }
+    }
+
+    return next;
+  }
+
+  async function loadSettings() {
+    if (!hasStorageApi) {
+      return { ...DEFAULT_SETTINGS };
+    }
+
+    return new Promise((resolve) => {
+      storageApi.local.get(SETTINGS_KEYS, (result) => {
+        resolve(normalizeSettings(result));
+      });
+    });
+  }
+
+  function isCosmeticEnabled(settings = currentSettings) {
+    return settings['zt.enabled'] && settings['zt.cosmeticFilteringEnabled'];
+  }
+
+  function removeStyle() {
+    const style = document.getElementById(STYLE_ID);
+    if (style) {
+      style.remove();
+    }
+  }
 
   async function loadRulesIndex() {
     try {
@@ -74,6 +129,7 @@
     }
 
     let style = document.getElementById(STYLE_ID);
+    const isNewStyleNode = !style;
     if (!style) {
       style = document.createElement('style');
       style.id = STYLE_ID;
@@ -81,7 +137,7 @@
     }
 
     const cssText = `${selectors.join(',\n')} { display: none !important; visibility: hidden !important; }`;
-    if (lastCssRef.value !== cssText) {
+    if (isNewStyleNode || lastCssRef.value !== cssText) {
       style.textContent = cssText;
       lastCssRef.value = cssText;
     }
@@ -95,30 +151,21 @@
     });
   }
 
-  async function start() {
-    const rulesIndex = await loadRulesIndex();
-    const domainToChunk = rulesIndex.domainToChunk || {};
-
-    const chunkNames = new Set();
-    for (const domain of domainChain(location.hostname)) {
-      const chunkName = domainToChunk[domain];
-      if (chunkName) {
-        chunkNames.add(chunkName);
-      }
+  function stopObserver() {
+    if (!observer) {
+      return;
     }
 
-    const chunkPayloads = await Promise.all([...chunkNames].map((chunkName) => loadChunk(chunkName)));
-    const selectors = computeSelectors(rulesIndex, chunkPayloads);
-    const cssRef = { value: '' };
+    observer.disconnect();
+    observer = null;
+  }
 
-    const apply = () => ensureStyle(selectors, cssRef);
+  function startObserver(apply) {
+    if (observer) {
+      return;
+    }
 
-    apply();
-    reportCosmeticCount(selectors.length);
-
-    let rafPending = false;
-
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
       if (rafPending) {
         return;
       }
@@ -134,6 +181,92 @@
       childList: true,
       subtree: true,
     });
+  }
+
+  function applyMode(selectors, cssRef) {
+    if (!isCosmeticEnabled()) {
+      stopObserver();
+      removeStyle();
+      reportCosmeticCount(0);
+      return;
+    }
+
+    ensureStyle(selectors, cssRef);
+    reportCosmeticCount(selectors.length);
+    startObserver(() => ensureStyle(selectors, cssRef));
+  }
+
+  async function start() {
+    let selectors = [];
+    let selectorsLoaded = false;
+    const cssRef = { value: '' };
+
+    async function ensureSelectorsLoaded() {
+      if (selectorsLoaded) {
+        return selectors;
+      }
+
+      const rulesIndex = await loadRulesIndex();
+      const domainToChunk = rulesIndex.domainToChunk || {};
+
+      const chunkNames = new Set();
+      for (const domain of domainChain(location.hostname)) {
+        const chunkName = domainToChunk[domain];
+        if (chunkName) {
+          chunkNames.add(chunkName);
+        }
+      }
+
+      const chunkPayloads = await Promise.all([...chunkNames].map((chunkName) => loadChunk(chunkName)));
+      selectors = computeSelectors(rulesIndex, chunkPayloads);
+      selectorsLoaded = true;
+
+      return selectors;
+    }
+
+    async function applyCurrentMode() {
+      if (!isCosmeticEnabled()) {
+        applyMode([], cssRef);
+        return;
+      }
+
+      const loadedSelectors = await ensureSelectorsLoaded();
+      applyMode(loadedSelectors, cssRef);
+    }
+
+    currentSettings = await loadSettings();
+    await applyCurrentMode();
+
+    if (storageApi?.onChanged) {
+      storageApi.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') {
+          return;
+        }
+
+        let hasRelevantChange = false;
+        const nextValues = { ...currentSettings };
+
+        for (const key of SETTINGS_KEYS) {
+          if (!Object.prototype.hasOwnProperty.call(changes, key)) {
+            continue;
+          }
+
+          hasRelevantChange = true;
+          const value = changes[key].newValue;
+          nextValues[key] = typeof value === 'boolean' ? value : DEFAULT_SETTINGS[key];
+        }
+
+        if (!hasRelevantChange) {
+          return;
+        }
+
+        currentSettings = normalizeSettings(nextValues);
+        applyCurrentMode().catch(() => {
+          // ignore dynamic apply errors to keep pages stable
+        });
+      });
+    }
+
   }
 
   start();

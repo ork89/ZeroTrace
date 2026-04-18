@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZeroTrace Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main id="settings-shell" class="settings-shell">
+      <section class="hero-panel" aria-labelledby="settings-title">
+        <div class="hero-copy">
+          <p class="eyebrow">ZeroTrace Control Center</p>
+          <h1 id="settings-title">Privacy controls that feel deliberate, not buried.</h1>
+          <p class="hero-text">
+            Tune ZeroTrace for aggressive blocking, cleaner pages, and quieter browsing. Existing controls remain live;
+            expanded controls are previewed here as the next layer of the product.
+          </p>
+        </div>
+
+        <aside class="hero-status" aria-labelledby="protection-heading">
+          <p class="panel-label" id="protection-heading">Protection status</p>
+          <p id="zt-protection-mode" class="protection-mode">Protection active</p>
+          <p id="zt-protection-note" class="protection-note">Core filtering is on for all sites.</p>
+
+          <div class="status-grid" aria-label="Current state summary">
+            <div class="status-chip" id="chip-enabled" data-state="on">
+              <span class="chip-label">Extension</span>
+              <strong class="chip-value">On</strong>
+            </div>
+            <div class="status-chip" id="chip-network" data-state="on">
+              <span class="chip-label">Network</span>
+              <strong class="chip-value">Active</strong>
+            </div>
+            <div class="status-chip" id="chip-cosmetic" data-state="on">
+              <span class="chip-label">Cosmetic</span>
+              <strong class="chip-value">Active</strong>
+            </div>
+            <div class="status-chip" id="chip-badge" data-state="on">
+              <span class="chip-label">Badge</span>
+              <strong class="chip-value">Visible</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <form id="settings-form" class="settings-form">
+        <section class="settings-card" aria-labelledby="core-controls-title">
+          <div class="section-heading">
+            <div>
+              <p class="panel-label">Live controls</p>
+              <h2 id="core-controls-title">Core protection</h2>
+            </div>
+            <p class="section-copy">These toggles map to the current implemented extension settings.</p>
+          </div>
+
+          <fieldset class="settings-group">
+            <legend class="sr-only">Core protection settings</legend>
+
+            <label class="setting-row setting-row-primary" for="zt-enabled">
+              <span class="setting-copy">
+                <span class="setting-title">Enable ZeroTrace</span>
+                <span class="setting-description">Master switch for all current blocking and cleanup behavior.</span>
+              </span>
+              <span class="toggle-wrap">
+                <input id="zt-enabled" type="checkbox" />
+                <span class="toggle-visual" aria-hidden="true"></span>
+              </span>
+            </label>
+
+            <label class="setting-row" for="zt-network">
+              <span class="setting-copy">
+                <span class="setting-title">Network ads and trackers</span>
+                <span class="setting-description"
+                  >Applies the extension ruleset to block requests before they load.</span
+                >
+              </span>
+              <span class="toggle-wrap">
+                <input id="zt-network" type="checkbox" />
+                <span class="toggle-visual" aria-hidden="true"></span>
+              </span>
+            </label>
+
+            <label class="setting-row" for="zt-cosmetic">
+              <span class="setting-copy">
+                <span class="setting-title">Cosmetic filtering</span>
+                <span class="setting-description">Hides ad containers and distracting page elements after load.</span>
+              </span>
+              <span class="toggle-wrap">
+                <input id="zt-cosmetic" type="checkbox" />
+                <span class="toggle-visual" aria-hidden="true"></span>
+              </span>
+            </label>
+
+            <label class="setting-row" for="zt-badge">
+              <span class="setting-copy">
+                <span class="setting-title">Toolbar badge counter</span>
+                <span class="setting-description">Shows the current blocked count on the extension action badge.</span>
+              </span>
+              <span class="toggle-wrap">
+                <input id="zt-badge" type="checkbox" />
+                <span class="toggle-visual" aria-hidden="true"></span>
+              </span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="settings-grid" aria-label="Additional preference categories">
+          <article class="settings-card" aria-labelledby="list-controls-title">
+            <div class="section-heading">
+              <div>
+                <p class="panel-label">Coming soon</p>
+                <h2 id="list-controls-title">Block-list controls</h2>
+              </div>
+              <span class="feature-pill">Preview</span>
+            </div>
+
+            <fieldset class="settings-group" disabled aria-describedby="list-controls-note">
+              <legend class="sr-only">Upcoming finer-grained block list controls</legend>
+
+              <label class="setting-row setting-row-disabled" for="zt-list-ads">
+                <span class="setting-copy">
+                  <span class="setting-title">Ads list</span>
+                  <span class="setting-description">Independent ad-blocking ruleset coverage.</span>
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-list-ads" type="checkbox" checked />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+
+              <label class="setting-row setting-row-disabled" for="zt-list-trackers">
+                <span class="setting-copy">
+                  <span class="setting-title">Tracker list</span>
+                  <span class="setting-description">Separate privacy and telemetry blocking controls.</span>
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-list-trackers" type="checkbox" checked />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+
+              <label class="setting-row setting-row-disabled" for="zt-list-annoyances">
+                <span class="setting-copy">
+                  <span class="setting-title">Annoyances and overlays</span>
+                  <span class="setting-description">Cookie notices, newsletter walls, and sticky interruptions.</span>
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-list-annoyances" type="checkbox" />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+
+              <label class="setting-row setting-row-disabled" for="zt-list-social">
+                <span class="setting-copy">
+                  <span class="setting-title">Social widgets</span>
+                  <span class="setting-description">Share bars, embedded feeds, and follow prompts.</span>
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-list-social" type="checkbox" />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+            </fieldset>
+
+            <p id="list-controls-note" class="preview-note">
+              Granular list management is displayed for planning, but it is not interactive in this release.
+            </p>
+          </article>
+
+          <article class="settings-card" aria-labelledby="experience-title">
+            <div class="section-heading">
+              <div>
+                <p class="panel-label">Preview settings</p>
+                <h2 id="experience-title">Appearance and behavior</h2>
+              </div>
+              <span class="feature-pill">Unavailable</span>
+            </div>
+
+            <div class="preview-stack" aria-describedby="experience-note">
+              <label class="preview-field" for="zt-theme-mode">
+                <span class="preview-label">Theme mode</span>
+                <select id="zt-theme-mode" disabled>
+                  <option>Match system</option>
+                  <option>Light</option>
+                  <option>Dark</option>
+                </select>
+              </label>
+
+              <label class="setting-row setting-row-disabled" for="zt-notifications">
+                <span class="setting-copy">
+                  <span class="setting-title">Blocking notifications</span>
+                  <span class="setting-description">Surface notable site interventions and update confirmations.</span>
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-notifications" type="checkbox" disabled />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+
+              <label class="setting-row setting-row-disabled" for="zt-popup-compact">
+                <span class="setting-copy">
+                  <span class="setting-title">Compact popup mode</span>
+                  <span class="setting-description"
+                    >Reduce density for quicker glance interactions in the toolbar.</span
+                  >
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-popup-compact" type="checkbox" disabled />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+            </div>
+
+            <p id="experience-note" class="preview-note">
+              Theme and additional behavior preferences are intentionally shown as disabled roadmap items.
+            </p>
+          </article>
+        </section>
+
+        <div class="actions-panel">
+          <div class="actions-copy">
+            <p class="panel-label">Persistence</p>
+            <p class="actions-note">
+              Save applies the live settings above. Preview controls remain disabled until implemented.
+            </p>
+          </div>
+
+          <div class="actions">
+            <button type="submit" id="save-btn">Save changes</button>
+            <button type="button" id="reset-btn" class="button-secondary">Reset defaults</button>
+          </div>
+        </div>
+
+        <p id="status" class="status" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <script src="settings.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
