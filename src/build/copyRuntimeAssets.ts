@@ -3,7 +3,19 @@ import path from 'path';
 
 import { DIST_DIR } from '../config/constants';
 
-const RUNTIME_FILES = ['background.js', 'content.js'];
+const RUNTIME_FILES = [
+  'background.js',
+  'content.js',
+  'options.html',
+  'options.css',
+  'options.js',
+  'popup.html',
+  'popup.css',
+  'popup.js',
+  'settings.js',
+  'youtube-main.js',
+  'youtube-ads.js',
+];
 const ICONS_SOURCE_DIR = path.resolve('./public/icons');
 const ICONS_DEST_DIR = path.join(DIST_DIR, 'icons');
 
