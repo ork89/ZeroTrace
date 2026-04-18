@@ -24,8 +24,8 @@ export function writeRuleset(groupName: string, rules: DnrRule[]): GeneratedRule
 
     return {
       id: `${groupName}_${index + 1}`,
-      enabled: index === 0,
-      path: `rules/${fileName}`
+      enabled: true,
+      path: `rules/${fileName}`,
     };
   });
 }

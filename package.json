@@ -14,7 +14,7 @@
     "build": "tsx build-rules.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "test": "echo \"No tests yet\""
+    "test": "tsx test/run-tests.ts"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
