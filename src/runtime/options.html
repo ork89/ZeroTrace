@@ -13,8 +13,8 @@
           <p class="eyebrow">ZeroTrace Control Center</p>
           <h1 id="settings-title">Privacy controls that feel deliberate, not buried.</h1>
           <p class="hero-text">
-            Tune ZeroTrace for aggressive blocking, cleaner pages, and quieter browsing. Existing controls remain live;
-            expanded controls are previewed here as the next layer of the product.
+            Tune ZeroTrace for aggressive blocking, cleaner pages, and quieter browsing. Core controls and block-list
+            selection are live here, while the remaining roadmap settings stay visible for planning.
           </p>
         </div>
 
@@ -109,33 +109,33 @@
           <article class="settings-card" aria-labelledby="list-controls-title">
             <div class="section-heading">
               <div>
-                <p class="panel-label">Coming soon</p>
+                <p class="panel-label">Available now</p>
                 <h2 id="list-controls-title">Block-list controls</h2>
               </div>
-              <span class="feature-pill">Preview</span>
+              <span class="feature-pill feature-pill-live">Live</span>
             </div>
 
-            <fieldset class="settings-group" disabled aria-describedby="list-controls-note">
-              <legend class="sr-only">Upcoming finer-grained block list controls</legend>
+            <fieldset class="settings-group" aria-describedby="list-controls-note">
+              <legend class="sr-only">Granular block list controls</legend>
 
-              <label class="setting-row setting-row-disabled" for="zt-list-ads">
+              <label class="setting-row" for="zt-list-ads">
                 <span class="setting-copy">
                   <span class="setting-title">Ads list</span>
-                  <span class="setting-description">Independent ad-blocking ruleset coverage.</span>
+                  <span class="setting-description">Controls EasyList network rules and YouTube ad network requests (DNR). YouTube DOM-level ad removal follows the cosmetic and network master toggles.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-ads" type="checkbox" checked />
+                  <input id="zt-list-ads" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
 
-              <label class="setting-row setting-row-disabled" for="zt-list-trackers">
+              <label class="setting-row" for="zt-list-trackers">
                 <span class="setting-copy">
                   <span class="setting-title">Tracker list</span>
-                  <span class="setting-description">Separate privacy and telemetry blocking controls.</span>
+                  <span class="setting-description">Controls EasyPrivacy tracking and telemetry protections.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-trackers" type="checkbox" checked />
+                  <input id="zt-list-trackers" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
@@ -146,7 +146,7 @@
                   <span class="setting-description">Cookie notices, newsletter walls, and sticky interruptions.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-annoyances" type="checkbox" />
+                  <input id="zt-list-annoyances" type="checkbox" disabled />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
@@ -157,14 +157,14 @@
                   <span class="setting-description">Share bars, embedded feeds, and follow prompts.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-social" type="checkbox" />
+                  <input id="zt-list-social" type="checkbox" disabled />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
             </fieldset>
 
             <p id="list-controls-note" class="preview-note">
-              Granular list management is displayed for planning, but it is not interactive in this release.
+              Ads and tracker lists are live now. Additional list categories remain visible here until their rulesets are added.
             </p>
           </article>
 
@@ -222,7 +222,7 @@
           <div class="actions-copy">
             <p class="panel-label">Persistence</p>
             <p class="actions-note">
-              Save applies the live settings above. Preview controls remain disabled until implemented.
+              Save applies the live settings above. Roadmap controls remain disabled until implemented.
             </p>
           </div>
 

@@ -3,6 +3,8 @@ const tabStats = new Map();
 const DEFAULT_SETTINGS = {
   'zt.enabled': true,
   'zt.networkBlockingEnabled': true,
+  'zt.blockAdsEnabled': true,
+  'zt.blockTrackingEnabled': true,
   'zt.cosmeticFilteringEnabled': true,
   'zt.badgeEnabled': true,
 };
@@ -335,6 +337,26 @@ function isNetworkEnabled(settings = currentSettings) {
   return isMasterEnabled(settings) && settings['zt.networkBlockingEnabled'];
 }
 
+function isAdsListEnabled(settings = currentSettings) {
+  return isNetworkEnabled(settings) && settings['zt.blockAdsEnabled'];
+}
+
+function isTrackingListEnabled(settings = currentSettings) {
+  return isNetworkEnabled(settings) && settings['zt.blockTrackingEnabled'];
+}
+
+function isRulesetEnabledForSettings(rulesetId, settings = currentSettings) {
+  if (rulesetId.startsWith('ads_') || rulesetId.startsWith('youtube_ads_')) {
+    return isAdsListEnabled(settings);
+  }
+
+  if (rulesetId.startsWith('tracking_')) {
+    return isTrackingListEnabled(settings);
+  }
+
+  return isNetworkEnabled(settings);
+}
+
 function isCosmeticEnabled(settings = currentSettings) {
   return isMasterEnabled(settings) && settings['zt.cosmeticFilteringEnabled'];
 }
@@ -368,11 +390,11 @@ async function setStorageSettings(values) {
 }
 
 async function applyNetworkRulesetState(settings = currentSettings) {
-  const shouldEnableNetwork = isNetworkEnabled(settings);
-  const enableRulesetIds = shouldEnableNetwork ? defaultEnabledRulesetIds : [];
-  const disableRulesetIds = shouldEnableNetwork
-    ? allRulesetIds.filter((id) => !defaultEnabledRulesetIds.includes(id))
-    : allRulesetIds;
+  const enableRulesetIds = isNetworkEnabled(settings)
+    ? allRulesetIds.filter((id) => defaultEnabledRulesetIds.includes(id) && isRulesetEnabledForSettings(id, settings))
+    : [];
+  const enabledRulesetIds = new Set(enableRulesetIds);
+  const disableRulesetIds = allRulesetIds.filter((id) => !enabledRulesetIds.has(id));
 
   if (!enableRulesetIds.length && !disableRulesetIds.length) {
     return;
