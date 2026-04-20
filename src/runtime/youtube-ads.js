@@ -12,6 +12,8 @@
   const DEFAULT_SETTINGS = {
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
+    'zt.blockAdsEnabled': true,
+    'zt.blockTrackingEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
     'zt.badgeEnabled': true,
   };
@@ -43,6 +45,9 @@
   }
 
   function shouldEnableYouTubeBlocking(settings) {
+    // DOM-level YouTube ad blocking (skip-button clicks, overlay removal) is
+    // driven by the cosmetic/network master toggles, not the Ads list toggle.
+    // The Ads list only controls the DNR rulesets for ads_* and youtube_ads_*.
     return settings['zt.enabled'] && (settings['zt.networkBlockingEnabled'] || settings['zt.cosmeticFilteringEnabled']);
   }
 

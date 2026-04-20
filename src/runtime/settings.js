@@ -2,6 +2,8 @@
   const DEFAULT_SETTINGS = Object.freeze({
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
+    'zt.blockAdsEnabled': true,
+    'zt.blockTrackingEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
     'zt.badgeEnabled': true,
   });

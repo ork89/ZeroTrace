@@ -7,6 +7,8 @@ const resetBtn = document.getElementById('reset-btn');
 const settingsShell = document.getElementById('settings-shell');
 const enabledInput = document.getElementById('zt-enabled');
 const networkInput = document.getElementById('zt-network');
+const adsListInput = document.getElementById('zt-list-ads');
+const trackingListInput = document.getElementById('zt-list-trackers');
 const cosmeticInput = document.getElementById('zt-cosmetic');
 const badgeInput = document.getElementById('zt-badge');
 const protectionMode = document.getElementById('zt-protection-mode');
@@ -22,9 +24,15 @@ function readFormSettings() {
   return {
     'zt.enabled': enabledInput.checked,
     'zt.networkBlockingEnabled': networkInput.checked,
+    'zt.blockAdsEnabled': adsListInput.checked,
+    'zt.blockTrackingEnabled': trackingListInput.checked,
     'zt.cosmeticFilteringEnabled': cosmeticInput.checked,
     'zt.badgeEnabled': badgeInput.checked,
   };
+}
+
+function isAnyBlockListEnabled(settings) {
+  return settings['zt.blockAdsEnabled'] || settings['zt.blockTrackingEnabled'];
 }
 
 function setChipState(element, state, value) {
@@ -38,15 +46,21 @@ function setChipState(element, state, value) {
 
 function renderSummary(settings) {
   const enabled = settings['zt.enabled'];
-  const networkEnabled = enabled && settings['zt.networkBlockingEnabled'];
+  const networkEnabled = enabled && settings['zt.networkBlockingEnabled'] && isAnyBlockListEnabled(settings);
   const cosmeticEnabled = enabled && settings['zt.cosmeticFilteringEnabled'];
   const badgeEnabled = enabled && settings['zt.badgeEnabled'];
 
   settingsShell.dataset.protection = enabled ? 'on' : 'off';
   protectionMode.textContent = enabled ? 'Protection active' : 'Protection paused';
-  protectionNote.textContent = enabled
-    ? 'Core filtering is on for all sites.'
-    : 'Master protection is off. Network, cosmetic, and badge controls are paused.';
+  if (!enabled) {
+    protectionNote.textContent = 'Master protection is off. Network, cosmetic, and badge controls are paused.';
+  } else if (!settings['zt.networkBlockingEnabled']) {
+    protectionNote.textContent = 'Network blocking is paused. Cosmetic filtering and badge updates can still run.';
+  } else if (!isAnyBlockListEnabled(settings)) {
+    protectionNote.textContent = 'Network blocking is on, but no block lists are selected yet.';
+  } else {
+    protectionNote.textContent = 'Core filtering is on for all sites.';
+  }
 
   setChipState(chipEnabled, enabled ? 'on' : 'off', enabled ? 'On' : 'Off');
   setChipState(chipNetwork, networkEnabled ? 'on' : 'off', networkEnabled ? 'Active' : 'Off');
@@ -57,11 +71,16 @@ function renderSummary(settings) {
 function renderForm(settings) {
   enabledInput.checked = settings['zt.enabled'];
   networkInput.checked = settings['zt.networkBlockingEnabled'];
+  adsListInput.checked = settings['zt.blockAdsEnabled'];
+  trackingListInput.checked = settings['zt.blockTrackingEnabled'];
   cosmeticInput.checked = settings['zt.cosmeticFilteringEnabled'];
   badgeInput.checked = settings['zt.badgeEnabled'];
 
   const controlsDisabled = !settings['zt.enabled'];
+  const listControlsDisabled = controlsDisabled || !settings['zt.networkBlockingEnabled'];
   networkInput.disabled = controlsDisabled;
+  adsListInput.disabled = listControlsDisabled;
+  trackingListInput.disabled = listControlsDisabled;
   cosmeticInput.disabled = controlsDisabled;
   badgeInput.disabled = controlsDisabled;
   renderSummary(settings);
@@ -104,10 +123,12 @@ async function init() {
 
   form.addEventListener('submit', handleSave);
   resetBtn.addEventListener('click', handleReset);
-  enabledInput.addEventListener('change', () => {
-    const draft = settingsApi.normalizeSettings(readFormSettings());
-    renderForm(draft);
-  });
+  for (const input of [enabledInput, networkInput, adsListInput, trackingListInput]) {
+    input.addEventListener('change', () => {
+      const draft = settingsApi.normalizeSettings(readFormSettings());
+      renderForm(draft);
+    });
+  }
 
   if (chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, areaName) => {

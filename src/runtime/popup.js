@@ -174,7 +174,11 @@ function setStatus(message) {
 }
 
 async function persistCurrentSettings() {
-  const nextSettings = settingsApi.normalizeSettings(readSettingsFromForm());
+  const currentSettings = await settingsApi.getSettings();
+  const nextSettings = settingsApi.normalizeSettings({
+    ...currentSettings,
+    ...readSettingsFromForm(),
+  });
   await settingsApi.saveSettings(nextSettings);
   render(nextSettings);
   await refreshSiteControls(nextSettings);

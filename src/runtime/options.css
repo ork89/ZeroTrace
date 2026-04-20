@@ -217,6 +217,11 @@ button {
   text-transform: uppercase;
 }
 
+.feature-pill-live {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 .settings-group {
   margin: 0;
   padding: 0;
