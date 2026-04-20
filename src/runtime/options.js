@@ -123,7 +123,7 @@ async function init() {
 
   form.addEventListener('submit', handleSave);
   resetBtn.addEventListener('click', handleReset);
-  for (const input of [enabledInput, networkInput, adsListInput, trackingListInput]) {
+   for (const input of [enabledInput, networkInput, adsListInput, trackingListInput, cosmeticInput, badgeInput]) {
     input.addEventListener('change', () => {
       const draft = settingsApi.normalizeSettings(readFormSettings());
       renderForm(draft);
