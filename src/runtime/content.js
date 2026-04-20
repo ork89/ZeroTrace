@@ -8,6 +8,7 @@
     'zt.badgeEnabled': true,
   };
   const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
+  const HOST_STATE_CHANGED_MESSAGE_TYPE = 'zt-host-state-changed';
   const storageApi = (() => {
     try {
       return chrome.storage || null;
@@ -18,8 +19,22 @@
   const hasStorageApi = Boolean(storageApi?.local);
 
   let currentSettings = { ...DEFAULT_SETTINGS };
+  let hostBypassed = false;
   let observer = null;
   let rafPending = false;
+
+  function normalizeHost(host) {
+    if (typeof host !== 'string') {
+      return null;
+    }
+
+    const normalized = host.trim().toLowerCase().replace(/\.+$/, '');
+    return normalized || null;
+  }
+
+  function getCurrentHost() {
+    return normalizeHost(location.hostname);
+  }
 
   function normalizeSettings(raw) {
     const next = { ...DEFAULT_SETTINGS };
@@ -48,6 +63,10 @@
 
   function isCosmeticEnabled(settings = currentSettings) {
     return settings['zt.enabled'] && settings['zt.cosmeticFilteringEnabled'];
+  }
+
+  function isCosmeticActive() {
+    return isCosmeticEnabled() && !hostBypassed;
   }
 
   function removeStyle() {
@@ -184,7 +203,7 @@
   }
 
   function applyMode(selectors, cssRef) {
-    if (!isCosmeticEnabled()) {
+    if (!isCosmeticActive()) {
       stopObserver();
       removeStyle();
       reportCosmeticCount(0);
@@ -225,7 +244,7 @@
     }
 
     async function applyCurrentMode() {
-      if (!isCosmeticEnabled()) {
+      if (!isCosmeticActive()) {
         applyMode([], cssRef);
         return;
       }
@@ -235,6 +254,30 @@
     }
 
     currentSettings = await loadSettings();
+
+    const hostState = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: 'zt-get-host-state',
+            host: getCurrentHost(),
+            url: location.href,
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve(null);
+              return;
+            }
+
+            resolve(response || null);
+          },
+        );
+      } catch {
+        resolve(null);
+      }
+    });
+
+    hostBypassed = Boolean(hostState?.bypassed);
     await applyCurrentMode();
 
     if (storageApi?.onChanged) {
@@ -267,6 +310,21 @@
       });
     }
 
+    chrome.runtime.onMessage.addListener((message) => {
+      if (!message || message.type !== HOST_STATE_CHANGED_MESSAGE_TYPE) {
+        return;
+      }
+
+      const currentHost = getCurrentHost();
+      if (!currentHost || normalizeHost(message.host) !== currentHost) {
+        return;
+      }
+
+      hostBypassed = Boolean(message.bypassed);
+      applyCurrentMode().catch(() => {
+        // ignore dynamic host-state apply errors to keep pages stable
+      });
+    });
   }
 
   start();

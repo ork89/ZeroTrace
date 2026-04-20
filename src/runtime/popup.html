@@ -76,21 +76,17 @@
       <section class="popup-card" aria-labelledby="popup-site-title">
         <div class="section-heading">
           <div>
-            <p class="panel-label">Coming soon</p>
-            <h2 id="popup-site-title">Per-session controls</h2>
+            <p class="panel-label">Per-site</p>
+            <h2 id="popup-site-title">Site controls</h2>
           </div>
-          <span class="feature-pill">UI preview</span>
         </div>
 
         <div class="disabled-actions" aria-describedby="popup-site-note">
-          <button type="button" class="ghost-button" disabled>Pause extension</button>
-          <button type="button" class="ghost-button" disabled>Disable on current site</button>
+          <button type="button" id="popup-pause-host" class="ghost-button">Pause on this site</button>
+          <button type="button" id="popup-whitelist-host" class="ghost-button">Disable on this site</button>
         </div>
 
-        <p id="popup-site-note" class="preview-note">
-          These controls are intentionally visible but unavailable in this task. They stay disabled so the popup
-          previews future behavior without implying support today.
-        </p>
+        <p id="popup-site-note" class="preview-note">Use these controls for the current tab only.</p>
       </section>
 
       <div class="popup-footer">
