@@ -4,6 +4,7 @@
   const DEFAULT_SETTINGS = {
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
+    'zt.blockAnnoyancesEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
     'zt.badgeEnabled': true,
   };
@@ -22,6 +23,10 @@
   let hostBypassed = false;
   let observer = null;
   let rafPending = false;
+  const hiddenOverlayState = new Map();
+  const pointerBypassState = new Map();
+  const inertRemovedNodes = new Set();
+  let overflowState = null;
 
   function normalizeHost(host) {
     if (typeof host !== 'string') {
@@ -67,6 +72,205 @@
 
   function isCosmeticActive() {
     return isCosmeticEnabled() && !hostBypassed;
+  }
+
+  function isAnnoyancesEnabled(settings = currentSettings) {
+    return isCosmeticEnabled(settings) && settings['zt.blockAnnoyancesEnabled'];
+  }
+
+  function captureInlineStyleState(element, propertyName) {
+    return {
+      value: element.style.getPropertyValue(propertyName),
+      priority: element.style.getPropertyPriority(propertyName),
+    };
+  }
+
+  function restoreInlineStyleState(element, propertyName, state) {
+    if (!state || !state.value) {
+      element.style.removeProperty(propertyName);
+      return;
+    }
+
+    element.style.setProperty(propertyName, state.value, state.priority || '');
+  }
+
+  function markHidden(element) {
+    if (!hiddenOverlayState.has(element)) {
+      hiddenOverlayState.set(element, {
+        display: captureInlineStyleState(element, 'display'),
+        visibility: captureInlineStyleState(element, 'visibility'),
+      });
+    }
+
+    element.style.setProperty('display', 'none', 'important');
+    element.style.setProperty('visibility', 'hidden', 'important');
+    element.dataset.ztHiddenOverlay = '1';
+  }
+
+  function markPointerBypassed(element) {
+    if (!pointerBypassState.has(element)) {
+      pointerBypassState.set(element, captureInlineStyleState(element, 'pointer-events'));
+    }
+
+    element.style.setProperty('pointer-events', 'none', 'important');
+  }
+
+  function restorePointerBypassed() {
+    for (const [element, state] of pointerBypassState) {
+      restoreInlineStyleState(element, 'pointer-events', state);
+    }
+
+    pointerBypassState.clear();
+  }
+
+  function removeInertLocks() {
+    for (const node of document.querySelectorAll('[inert]')) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+
+      if (!inertRemovedNodes.has(node)) {
+        inertRemovedNodes.add(node);
+      }
+
+      node.removeAttribute('inert');
+    }
+  }
+
+  function restoreInertLocks() {
+    for (const node of inertRemovedNodes) {
+      if (node.isConnected) {
+        node.setAttribute('inert', '');
+      }
+    }
+
+    inertRemovedNodes.clear();
+  }
+
+  function ensureOverflowOverrideState() {
+    if (overflowState) {
+      return;
+    }
+
+    overflowState = {
+      documentElement: {
+        overflow: captureInlineStyleState(document.documentElement, 'overflow'),
+        pointerEvents: captureInlineStyleState(document.documentElement, 'pointer-events'),
+      },
+      body: document.body
+        ? {
+            overflow: captureInlineStyleState(document.body, 'overflow'),
+            pointerEvents: captureInlineStyleState(document.body, 'pointer-events'),
+          }
+        : null,
+    };
+  }
+
+  function restoreSuppressedOverlays() {
+    for (const [element, state] of hiddenOverlayState) {
+      restoreInlineStyleState(element, 'display', state.display);
+      restoreInlineStyleState(element, 'visibility', state.visibility);
+      delete element.dataset.ztHiddenOverlay;
+    }
+
+    hiddenOverlayState.clear();
+    restorePointerBypassed();
+    restoreInertLocks();
+
+    if (!overflowState) {
+      return;
+    }
+
+    restoreInlineStyleState(document.documentElement, 'overflow', overflowState.documentElement.overflow);
+    restoreInlineStyleState(document.documentElement, 'pointer-events', overflowState.documentElement.pointerEvents);
+
+    if (document.body) {
+      restoreInlineStyleState(document.body, 'overflow', overflowState.body?.overflow);
+      restoreInlineStyleState(document.body, 'pointer-events', overflowState.body?.pointerEvents);
+    }
+
+    overflowState = null;
+  }
+
+  function suppressKnownAntiAdblockOverlays() {
+    if (!/(^|\.)howtogeek\.com$/i.test(location.hostname)) {
+      return 0;
+    }
+
+    const textPattern = /we noticed that ads aren't being displayed\./i;
+    const knownBlockers = document.querySelectorAll('dialog[open], .adblock, [class*="adblock"], [id*="adblock"]');
+    const candidates = document.querySelectorAll('div, section, aside, article, dialog');
+    let hiddenCount = 0;
+
+    for (const node of knownBlockers) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+
+      if (node.dataset.ztHiddenOverlay !== '1') {
+        markHidden(node);
+        hiddenCount += 1;
+      }
+
+      markPointerBypassed(node);
+
+      if (node instanceof HTMLDialogElement && node.open) {
+        try {
+          node.close();
+        } catch {
+          // ignore dialog close failures
+        }
+      }
+    }
+
+    for (const node of candidates) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+
+      if (!textPattern.test(node.textContent || '')) {
+        continue;
+      }
+
+      let current = node;
+      for (let depth = 0; depth < 16 && current && current !== document.documentElement; depth += 1) {
+        const computed = getComputedStyle(current);
+        const zIndex = Number.parseInt(computed.zIndex || '0', 10);
+        const className = typeof current.className === 'string' ? current.className.toLowerCase() : '';
+        const overlayLike =
+          current.tagName === 'DIALOG' ||
+          className.includes('adblock') ||
+          computed.position === 'fixed' ||
+          computed.position === 'absolute' ||
+          zIndex >= 100;
+
+        if (overlayLike) {
+          if (current.dataset.ztHiddenOverlay !== '1') {
+            markHidden(current);
+            hiddenCount += 1;
+          }
+
+          markPointerBypassed(current);
+        }
+
+        current = current.parentElement;
+      }
+    }
+
+    removeInertLocks();
+
+    if (hiddenCount > 0 || pointerBypassState.size > 0 || inertRemovedNodes.size > 0) {
+      ensureOverflowOverrideState();
+      document.documentElement.style.setProperty('overflow', 'auto', 'important');
+      document.documentElement.style.setProperty('pointer-events', 'auto', 'important');
+
+      if (document.body) {
+        document.body.style.setProperty('overflow', 'auto', 'important');
+        document.body.style.setProperty('pointer-events', 'auto', 'important');
+      }
+    }
+
+    return hiddenCount;
   }
 
   function removeStyle() {
@@ -144,7 +348,7 @@
 
   function ensureStyle(selectors, lastCssRef) {
     if (!selectors.length) {
-      return;
+      return 0;
     }
 
     let style = document.getElementById(STYLE_ID);
@@ -155,11 +359,39 @@
       (document.documentElement || document.head || document.body)?.appendChild(style);
     }
 
-    const cssText = `${selectors.join(',\n')} { display: none !important; visibility: hidden !important; }`;
-    if (isNewStyleNode || lastCssRef.value !== cssText) {
-      style.textContent = cssText;
-      lastCssRef.value = cssText;
+    const signature = selectors.join('\n');
+    if (!isNewStyleNode && lastCssRef.value === signature) {
+      const cachedCount = Number.parseInt(style.dataset.appliedCount || '0', 10);
+      return Number.isFinite(cachedCount) ? cachedCount : 0;
     }
+
+    const ruleBody = 'display: none !important; visibility: hidden !important;';
+
+    // Use per-selector insertion so one invalid selector does not invalidate all rules.
+    const sheet = style.sheet;
+    let appliedCount = 0;
+    if (sheet) {
+      while (sheet.cssRules.length > 0) {
+        sheet.deleteRule(sheet.cssRules.length - 1);
+      }
+
+      for (const selector of selectors) {
+        try {
+          sheet.insertRule(`${selector} { ${ruleBody} }`, sheet.cssRules.length);
+          appliedCount += 1;
+        } catch {
+          // Skip unsupported cosmetic selector syntaxes (e.g. +js, :has-text).
+        }
+      }
+    } else {
+      style.textContent = selectors.map((selector) => `${selector} { ${ruleBody} }`).join('\n');
+      appliedCount = selectors.length;
+    }
+
+    style.dataset.appliedCount = String(appliedCount);
+    lastCssRef.value = signature;
+
+    return appliedCount;
   }
 
   function reportCosmeticCount(count) {
@@ -206,13 +438,27 @@
     if (!isCosmeticActive()) {
       stopObserver();
       removeStyle();
+        restoreSuppressedOverlays();
       reportCosmeticCount(0);
       return;
     }
 
-    ensureStyle(selectors, cssRef);
-    reportCosmeticCount(selectors.length);
-    startObserver(() => ensureStyle(selectors, cssRef));
+      const annoyancesEnabled = isAnnoyancesEnabled();
+      if (!annoyancesEnabled) {
+        restoreSuppressedOverlays();
+      }
+
+    const appliedCount = ensureStyle(selectors, cssRef);
+      const suppressedCount = annoyancesEnabled ? suppressKnownAntiAdblockOverlays() : 0;
+    reportCosmeticCount(appliedCount + suppressedCount);
+    startObserver(() => {
+      ensureStyle(selectors, cssRef);
+        if (isAnnoyancesEnabled()) {
+        suppressKnownAntiAdblockOverlays();
+        } else {
+          restoreSuppressedOverlays();
+      }
+    });
   }
 
   async function start() {

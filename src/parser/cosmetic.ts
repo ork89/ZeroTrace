@@ -20,12 +20,16 @@ export function parseCosmeticFilterLine(line: string): CosmeticFilterEntry | nul
     return null;
   }
 
+  if (selector.startsWith('+js(')) {
+    return null;
+  }
+
   const domains = parseDomainSpec(domainSpec);
 
   return {
     domains,
     selector,
-    isException
+    isException,
   };
 }
 
