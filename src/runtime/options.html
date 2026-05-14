@@ -14,7 +14,7 @@
           <h1 id="settings-title">Privacy controls that feel deliberate, not buried.</h1>
           <p class="hero-text">
             Tune ZeroTrace for aggressive blocking, cleaner pages, and quieter browsing. Core controls and block-list
-            selection are live here, while the remaining roadmap settings stay visible for planning.
+            selection are live here, with appearance and behavior preferences now included.
           </p>
         </div>
 
@@ -121,7 +121,10 @@
               <label class="setting-row" for="zt-list-ads">
                 <span class="setting-copy">
                   <span class="setting-title">Ads list</span>
-                  <span class="setting-description">Controls EasyList network rules and YouTube ad network requests (DNR). YouTube DOM-level ad removal follows the cosmetic and network master toggles.</span>
+                  <span class="setting-description"
+                    >Controls EasyList network rules and YouTube ad network requests (DNR). YouTube DOM-level ad removal
+                    follows the cosmetic and network master toggles.</span
+                  >
                 </span>
                 <span class="toggle-wrap">
                   <input id="zt-list-ads" type="checkbox" />
@@ -140,65 +143,66 @@
                 </span>
               </label>
 
-              <label class="setting-row setting-row-disabled" for="zt-list-annoyances">
+              <label class="setting-row" for="zt-list-annoyances">
                 <span class="setting-copy">
                   <span class="setting-title">Annoyances and overlays</span>
                   <span class="setting-description">Cookie notices, newsletter walls, and sticky interruptions.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-annoyances" type="checkbox" disabled />
+                  <input id="zt-list-annoyances" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
 
-              <label class="setting-row setting-row-disabled" for="zt-list-social">
+              <label class="setting-row" for="zt-list-social">
                 <span class="setting-copy">
                   <span class="setting-title">Social widgets</span>
                   <span class="setting-description">Share bars, embedded feeds, and follow prompts.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-list-social" type="checkbox" disabled />
+                  <input id="zt-list-social" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
             </fieldset>
 
             <p id="list-controls-note" class="preview-note">
-              Ads and tracker lists are live now. Additional list categories remain visible here until their rulesets are added.
+              All four block-list categories are live. Disable specific categories anytime without turning off network
+              filtering.
             </p>
           </article>
 
           <article class="settings-card" aria-labelledby="experience-title">
             <div class="section-heading">
               <div>
-                <p class="panel-label">Preview settings</p>
+                <p class="panel-label">Available now</p>
                 <h2 id="experience-title">Appearance and behavior</h2>
               </div>
-              <span class="feature-pill">Unavailable</span>
+              <span class="feature-pill feature-pill-live">Live</span>
             </div>
 
             <div class="preview-stack" aria-describedby="experience-note">
               <label class="preview-field" for="zt-theme-mode">
                 <span class="preview-label">Theme mode</span>
-                <select id="zt-theme-mode" disabled>
-                  <option>Match system</option>
-                  <option>Light</option>
-                  <option>Dark</option>
+                <select id="zt-theme-mode">
+                  <option value="system">Match system</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
                 </select>
               </label>
 
-              <label class="setting-row setting-row-disabled" for="zt-notifications">
+              <label class="setting-row" for="zt-notifications">
                 <span class="setting-copy">
                   <span class="setting-title">Blocking notifications</span>
                   <span class="setting-description">Surface notable site interventions and update confirmations.</span>
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-notifications" type="checkbox" disabled />
+                  <input id="zt-notifications" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
 
-              <label class="setting-row setting-row-disabled" for="zt-popup-compact">
+              <label class="setting-row" for="zt-popup-compact">
                 <span class="setting-copy">
                   <span class="setting-title">Compact popup mode</span>
                   <span class="setting-description"
@@ -206,14 +210,14 @@
                   >
                 </span>
                 <span class="toggle-wrap">
-                  <input id="zt-popup-compact" type="checkbox" disabled />
+                  <input id="zt-popup-compact" type="checkbox" />
                   <span class="toggle-visual" aria-hidden="true"></span>
                 </span>
               </label>
             </div>
 
             <p id="experience-note" class="preview-note">
-              Theme and additional behavior preferences are intentionally shown as disabled roadmap items.
+              Theme preferences, compact popup density, and optional notifications are fully configurable.
             </p>
           </article>
         </section>
@@ -222,7 +226,7 @@
           <div class="actions-copy">
             <p class="panel-label">Persistence</p>
             <p class="actions-note">
-              Save applies the live settings above. Roadmap controls remain disabled until implemented.
+              Save applies all controls above, including appearance and behavior preferences.
             </p>
           </div>
 

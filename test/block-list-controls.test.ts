@@ -8,8 +8,13 @@ type SettingsShape = {
   'zt.networkBlockingEnabled'?: boolean;
   'zt.blockAdsEnabled'?: boolean;
   'zt.blockTrackingEnabled'?: boolean;
+  'zt.blockAnnoyancesEnabled'?: boolean;
+  'zt.blockSocialEnabled'?: boolean;
   'zt.cosmeticFilteringEnabled'?: boolean;
   'zt.badgeEnabled'?: boolean;
+  'zt.notificationsEnabled'?: boolean;
+  'zt.compactPopupMode'?: boolean;
+  'zt.themeMode'?: 'system' | 'light' | 'dark' | string;
 };
 
 type RulesetUpdate = {
@@ -29,6 +34,8 @@ function createBackgroundChromeMock(storedSettings: SettingsShape) {
             { id: 'ads_1', enabled: true },
             { id: 'tracking_1', enabled: true },
             { id: 'youtube_ads_1', enabled: true },
+            { id: 'annoyances_1', enabled: true },
+            { id: 'social_1', enabled: true },
           ],
         },
       }),
@@ -154,35 +161,65 @@ async function runBackgroundRulesetScenarios() {
     'zt.networkBlockingEnabled': true,
     'zt.blockAdsEnabled': false,
     'zt.blockTrackingEnabled': true,
+    'zt.blockAnnoyancesEnabled': false,
+    'zt.blockSocialEnabled': false,
   });
   assert.deepEqual(adsOff.enableRulesetIds, ['tracking_1']);
-  assert.deepEqual(adsOff.disableRulesetIds, ['ads_1', 'youtube_ads_1']);
+  assert.deepEqual(adsOff.disableRulesetIds, ['ads_1', 'youtube_ads_1', 'annoyances_1', 'social_1']);
 
   const trackingOff = await loadBackgroundAndGetLatestRulesetUpdate({
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
     'zt.blockAdsEnabled': true,
     'zt.blockTrackingEnabled': false,
+    'zt.blockAnnoyancesEnabled': false,
+    'zt.blockSocialEnabled': false,
   });
   assert.deepEqual(trackingOff.enableRulesetIds, ['ads_1', 'youtube_ads_1']);
-  assert.deepEqual(trackingOff.disableRulesetIds, ['tracking_1']);
+  assert.deepEqual(trackingOff.disableRulesetIds, ['tracking_1', 'annoyances_1', 'social_1']);
+
+  const annoyancesOff = await loadBackgroundAndGetLatestRulesetUpdate({
+    'zt.enabled': true,
+    'zt.networkBlockingEnabled': true,
+    'zt.blockAdsEnabled': false,
+    'zt.blockTrackingEnabled': false,
+    'zt.blockAnnoyancesEnabled': false,
+    'zt.blockSocialEnabled': true,
+  });
+  assert.deepEqual(annoyancesOff.enableRulesetIds, ['social_1']);
+  assert.deepEqual(annoyancesOff.disableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1', 'annoyances_1']);
+
+  const socialOff = await loadBackgroundAndGetLatestRulesetUpdate({
+    'zt.enabled': true,
+    'zt.networkBlockingEnabled': true,
+    'zt.blockAdsEnabled': false,
+    'zt.blockTrackingEnabled': false,
+    'zt.blockAnnoyancesEnabled': true,
+    'zt.blockSocialEnabled': false,
+  });
+  assert.deepEqual(socialOff.enableRulesetIds, ['annoyances_1']);
+  assert.deepEqual(socialOff.disableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1', 'social_1']);
 
   const networkOff = await loadBackgroundAndGetLatestRulesetUpdate({
     'zt.enabled': true,
     'zt.networkBlockingEnabled': false,
     'zt.blockAdsEnabled': true,
     'zt.blockTrackingEnabled': true,
+    'zt.blockAnnoyancesEnabled': true,
+    'zt.blockSocialEnabled': true,
   });
   assert.deepEqual(networkOff.enableRulesetIds, []);
-  assert.deepEqual(networkOff.disableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1']);
+  assert.deepEqual(networkOff.disableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1', 'annoyances_1', 'social_1']);
 
   const allOn = await loadBackgroundAndGetLatestRulesetUpdate({
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
     'zt.blockAdsEnabled': true,
     'zt.blockTrackingEnabled': true,
+    'zt.blockAnnoyancesEnabled': true,
+    'zt.blockSocialEnabled': true,
   });
-  assert.deepEqual(allOn.enableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1']);
+  assert.deepEqual(allOn.enableRulesetIds, ['ads_1', 'tracking_1', 'youtube_ads_1', 'annoyances_1', 'social_1']);
   assert.deepEqual(allOn.disableRulesetIds, []);
 }
 
@@ -207,8 +244,8 @@ async function runSettingsNormalizationChecks() {
   const api = (
     context.globalThis as {
       ZeroTraceSettings?: {
-        DEFAULT_SETTINGS: Record<string, boolean>;
-        normalizeSettings: (raw: Record<string, unknown>) => Record<string, boolean>;
+        DEFAULT_SETTINGS: Record<string, boolean | string>;
+        normalizeSettings: (raw: Record<string, unknown>) => Record<string, boolean | string>;
       };
     }
   ).ZeroTraceSettings;
@@ -217,17 +254,41 @@ async function runSettingsNormalizationChecks() {
   const defaults = api.DEFAULT_SETTINGS;
   assert.equal(defaults['zt.blockAdsEnabled'], true);
   assert.equal(defaults['zt.blockTrackingEnabled'], true);
+  assert.equal(defaults['zt.blockAnnoyancesEnabled'], true);
+  assert.equal(defaults['zt.blockSocialEnabled'], true);
+  assert.equal(defaults['zt.themeMode'], 'system');
+  assert.equal(defaults['zt.notificationsEnabled'], false);
+  assert.equal(defaults['zt.compactPopupMode'], false);
 
   const normalized = api.normalizeSettings({
     'zt.blockAdsEnabled': false,
     'zt.blockTrackingEnabled': true,
+    'zt.blockAnnoyancesEnabled': false,
+    'zt.blockSocialEnabled': true,
     'zt.networkBlockingEnabled': false,
+    'zt.themeMode': 'dark',
+    'zt.notificationsEnabled': true,
+    'zt.compactPopupMode': true,
   });
 
   assert.equal(normalized['zt.blockAdsEnabled'], false);
   assert.equal(normalized['zt.blockTrackingEnabled'], true);
+  assert.equal(normalized['zt.blockAnnoyancesEnabled'], false);
+  assert.equal(normalized['zt.blockSocialEnabled'], true);
   assert.equal(normalized['zt.networkBlockingEnabled'], false);
+  assert.equal(normalized['zt.themeMode'], 'dark');
+  assert.equal(normalized['zt.notificationsEnabled'], true);
+  assert.equal(normalized['zt.compactPopupMode'], true);
   assert.equal(normalized['zt.enabled'], true);
+
+  const normalizedInvalid = api.normalizeSettings({
+    'zt.themeMode': 'neon',
+    'zt.notificationsEnabled': 'yes',
+    'zt.compactPopupMode': 1,
+  });
+  assert.equal(normalizedInvalid['zt.themeMode'], 'system');
+  assert.equal(normalizedInvalid['zt.notificationsEnabled'], false);
+  assert.equal(normalizedInvalid['zt.compactPopupMode'], false);
 }
 
 async function run() {

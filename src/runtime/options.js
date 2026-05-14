@@ -9,8 +9,13 @@ const enabledInput = document.getElementById('zt-enabled');
 const networkInput = document.getElementById('zt-network');
 const adsListInput = document.getElementById('zt-list-ads');
 const trackingListInput = document.getElementById('zt-list-trackers');
+const annoyancesListInput = document.getElementById('zt-list-annoyances');
+const socialListInput = document.getElementById('zt-list-social');
 const cosmeticInput = document.getElementById('zt-cosmetic');
 const badgeInput = document.getElementById('zt-badge');
+const themeModeInput = document.getElementById('zt-theme-mode');
+const notificationsInput = document.getElementById('zt-notifications');
+const popupCompactInput = document.getElementById('zt-popup-compact');
 const protectionMode = document.getElementById('zt-protection-mode');
 const protectionNote = document.getElementById('zt-protection-note');
 const chipEnabled = document.getElementById('chip-enabled');
@@ -20,19 +25,46 @@ const chipBadge = document.getElementById('chip-badge');
 
 let statusTimer = null;
 
+function resolveEffectiveTheme(themeMode) {
+  if (typeof settingsApi.resolveEffectiveTheme === 'function') {
+    return settingsApi.resolveEffectiveTheme(themeMode);
+  }
+
+  if (themeMode === 'light' || themeMode === 'dark') {
+    return themeMode;
+  }
+
+  return globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(settings) {
+  const effectiveTheme = resolveEffectiveTheme(settings['zt.themeMode']);
+  document.documentElement.dataset.ztTheme = effectiveTheme;
+}
+
 function readFormSettings() {
   return {
     'zt.enabled': enabledInput.checked,
     'zt.networkBlockingEnabled': networkInput.checked,
     'zt.blockAdsEnabled': adsListInput.checked,
     'zt.blockTrackingEnabled': trackingListInput.checked,
+    'zt.blockAnnoyancesEnabled': annoyancesListInput.checked,
+    'zt.blockSocialEnabled': socialListInput.checked,
     'zt.cosmeticFilteringEnabled': cosmeticInput.checked,
     'zt.badgeEnabled': badgeInput.checked,
+    'zt.themeMode': themeModeInput.value,
+    'zt.notificationsEnabled': notificationsInput.checked,
+    'zt.compactPopupMode': popupCompactInput.checked,
   };
 }
 
 function isAnyBlockListEnabled(settings) {
-  return settings['zt.blockAdsEnabled'] || settings['zt.blockTrackingEnabled'];
+  return (
+    settings['zt.blockAdsEnabled'] ||
+    settings['zt.blockTrackingEnabled'] ||
+    settings['zt.blockAnnoyancesEnabled'] ||
+    settings['zt.blockSocialEnabled']
+  );
 }
 
 function setChipState(element, state, value) {
@@ -73,16 +105,24 @@ function renderForm(settings) {
   networkInput.checked = settings['zt.networkBlockingEnabled'];
   adsListInput.checked = settings['zt.blockAdsEnabled'];
   trackingListInput.checked = settings['zt.blockTrackingEnabled'];
+  annoyancesListInput.checked = settings['zt.blockAnnoyancesEnabled'];
+  socialListInput.checked = settings['zt.blockSocialEnabled'];
   cosmeticInput.checked = settings['zt.cosmeticFilteringEnabled'];
   badgeInput.checked = settings['zt.badgeEnabled'];
+  themeModeInput.value = settings['zt.themeMode'];
+  notificationsInput.checked = settings['zt.notificationsEnabled'];
+  popupCompactInput.checked = settings['zt.compactPopupMode'];
 
   const controlsDisabled = !settings['zt.enabled'];
   const listControlsDisabled = controlsDisabled || !settings['zt.networkBlockingEnabled'];
   networkInput.disabled = controlsDisabled;
   adsListInput.disabled = listControlsDisabled;
   trackingListInput.disabled = listControlsDisabled;
+  annoyancesListInput.disabled = listControlsDisabled;
+  socialListInput.disabled = listControlsDisabled;
   cosmeticInput.disabled = controlsDisabled;
   badgeInput.disabled = controlsDisabled;
+  applyTheme(settings);
   renderSummary(settings);
 }
 
@@ -101,7 +141,11 @@ function setStatus(message) {
 async function handleSave(event) {
   event.preventDefault();
 
-  const nextSettings = settingsApi.normalizeSettings(readFormSettings());
+  const currentSettings = await settingsApi.getSettings();
+  const nextSettings = settingsApi.normalizeSettings({
+    ...currentSettings,
+    ...readFormSettings(),
+  });
   await settingsApi.saveSettings(nextSettings);
   renderForm(nextSettings);
   setStatus('Settings saved.');
@@ -123,11 +167,42 @@ async function init() {
 
   form.addEventListener('submit', handleSave);
   resetBtn.addEventListener('click', handleReset);
-   for (const input of [enabledInput, networkInput, adsListInput, trackingListInput, cosmeticInput, badgeInput]) {
+  for (const input of [
+    enabledInput,
+    networkInput,
+    adsListInput,
+    trackingListInput,
+    annoyancesListInput,
+    socialListInput,
+    cosmeticInput,
+    badgeInput,
+    themeModeInput,
+    notificationsInput,
+    popupCompactInput,
+  ]) {
     input.addEventListener('change', () => {
       const draft = settingsApi.normalizeSettings(readFormSettings());
       renderForm(draft);
     });
+  }
+
+  const systemThemeQuery = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+  if (systemThemeQuery) {
+    const refreshSystemTheme = () => {
+      const selectedThemeMode = typeof settingsApi.normalizeThemeMode === 'function'
+        ? settingsApi.normalizeThemeMode(themeModeInput.value)
+        : themeModeInput.value;
+
+      if (selectedThemeMode === 'system') {
+        applyTheme({ 'zt.themeMode': selectedThemeMode });
+      }
+    };
+
+    if (typeof systemThemeQuery.addEventListener === 'function') {
+      systemThemeQuery.addEventListener('change', refreshSystemTheme);
+    } else if (typeof systemThemeQuery.addListener === 'function') {
+      systemThemeQuery.addListener(refreshSystemTheme);
+    }
   }
 
   if (chrome.storage?.onChanged) {

@@ -1,12 +1,21 @@
 const tabStats = new Map();
+const THEME_MODE_VALUES = new Set(['system', 'light', 'dark']);
+const NOTIFICATION_WINDOW_MS = 60_000;
+const NOTIFICATION_MAX_PER_WINDOW = 3;
+const NOTIFICATION_DEDUP_MS = 12_000;
 
 const DEFAULT_SETTINGS = {
   'zt.enabled': true,
   'zt.networkBlockingEnabled': true,
   'zt.blockAdsEnabled': true,
   'zt.blockTrackingEnabled': true,
+  'zt.blockAnnoyancesEnabled': true,
+  'zt.blockSocialEnabled': true,
   'zt.cosmeticFilteringEnabled': true,
   'zt.badgeEnabled': true,
+  'zt.themeMode': 'system',
+  'zt.notificationsEnabled': false,
+  'zt.compactPopupMode': false,
 };
 
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -37,6 +46,110 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let whitelistedHosts = new Set();
 let pausedHosts = new Set();
 const tabHosts = new Map();
+const notificationDedup = new Map();
+let notificationWindow = [];
+
+function normalizeThemeMode(value) {
+  return typeof value === 'string' && THEME_MODE_VALUES.has(value) ? value : DEFAULT_SETTINGS['zt.themeMode'];
+}
+
+function isNotificationAllowed() {
+  return Boolean(chrome.notifications?.create) && Boolean(currentSettings['zt.notificationsEnabled']);
+}
+
+function checkNotificationWindow() {
+  const now = Date.now();
+  notificationWindow = notificationWindow.filter((at) => now - at < NOTIFICATION_WINDOW_MS);
+  return notificationWindow.length < NOTIFICATION_MAX_PER_WINDOW;
+}
+
+function shouldNotify(key) {
+  if (!isNotificationAllowed() || !checkNotificationWindow()) {
+    return false;
+  }
+
+  const now = Date.now();
+  const lastSent = notificationDedup.get(key) || 0;
+  if (now - lastSent < NOTIFICATION_DEDUP_MS) {
+    return false;
+  }
+
+  notificationDedup.set(key, now);
+  notificationWindow.push(now);
+  return true;
+}
+
+function sendNotification(key, title, message) {
+  if (!shouldNotify(key)) {
+    return;
+  }
+
+  try {
+    chrome.notifications.create(
+      `zt-${key}`,
+      {
+        type: 'basic',
+        iconUrl: 'icons/icon-48.png',
+        title,
+        message,
+      },
+      () => {
+        // ignore create callback/runtime errors to keep host actions reliable
+      },
+    );
+  } catch {
+    // ignore notification failures to keep runtime stable
+  }
+}
+
+function notifyHostStateChange(host, state) {
+  if (!host) {
+    return;
+  }
+
+  if (state === 'paused') {
+    sendNotification(`host-paused-${host}`, `ZeroTrace paused on ${host}`, 'Blocking is paused for this site.');
+    return;
+  }
+
+  if (state === 'whitelisted') {
+    sendNotification(`host-whitelisted-${host}`, `ZeroTrace disabled on ${host}`, 'This site is now whitelisted.');
+    return;
+  }
+
+  if (state === 'normal') {
+    sendNotification(`host-resumed-${host}`, `ZeroTrace active on ${host}`, 'Protection is active again for this site.');
+  }
+}
+
+function notifySettingsTransitions(previousSettings, nextSettings) {
+  if (!nextSettings['zt.notificationsEnabled']) {
+    return;
+  }
+
+  if (previousSettings['zt.enabled'] !== nextSettings['zt.enabled']) {
+    if (nextSettings['zt.enabled']) {
+      sendNotification('setting-enabled-on', 'ZeroTrace protection active', 'Core protections are running again.');
+    } else {
+      sendNotification(
+        'setting-enabled-off',
+        'ZeroTrace protection paused',
+        'Network and cosmetic protections are off until re-enabled.',
+      );
+    }
+  }
+
+  if (
+    previousSettings['zt.networkBlockingEnabled'] !== nextSettings['zt.networkBlockingEnabled'] &&
+    nextSettings['zt.enabled']
+  ) {
+    if (nextSettings['zt.networkBlockingEnabled']) {
+      sendNotification('setting-network-on', 'Network blocking active', 'Request-level blocking is active again.');
+    } else {
+      sendNotification('setting-network-off', 'Network blocking paused', 'Request-level blocking is currently disabled.');
+    }
+  }
+}
 
 function normalizeHost(host) {
   if (typeof host !== 'string') {
@@ -321,6 +434,12 @@ function normalizeSettings(raw) {
 
   for (const key of SETTINGS_KEYS) {
     const value = raw?.[key];
+
+    if (key === 'zt.themeMode') {
+      next[key] = normalizeThemeMode(value);
+      continue;
+    }
+
     if (typeof value === 'boolean') {
       next[key] = value;
     }
@@ -345,6 +464,14 @@ function isTrackingListEnabled(settings = currentSettings) {
   return isNetworkEnabled(settings) && settings['zt.blockTrackingEnabled'];
 }
 
+function isAnnoyancesListEnabled(settings = currentSettings) {
+  return isNetworkEnabled(settings) && settings['zt.blockAnnoyancesEnabled'];
+}
+
+function isSocialListEnabled(settings = currentSettings) {
+  return isNetworkEnabled(settings) && settings['zt.blockSocialEnabled'];
+}
+
 function isRulesetEnabledForSettings(rulesetId, settings = currentSettings) {
   if (rulesetId.startsWith('ads_') || rulesetId.startsWith('youtube_ads_')) {
     return isAdsListEnabled(settings);
@@ -352,6 +479,14 @@ function isRulesetEnabledForSettings(rulesetId, settings = currentSettings) {
 
   if (rulesetId.startsWith('tracking_')) {
     return isTrackingListEnabled(settings);
+  }
+
+  if (rulesetId.startsWith('annoyances_')) {
+    return isAnnoyancesListEnabled(settings);
+  }
+
+  if (rulesetId.startsWith('social_')) {
+    return isSocialListEnabled(settings);
   }
 
   return isNetworkEnabled(settings);
@@ -454,7 +589,15 @@ function broadcastSettings(settings = currentSettings) {
 
 async function loadSettings() {
   const storedSettings = await getStorageSettings();
-  currentSettings = normalizeSettings(storedSettings);
+  const normalizedSettings = normalizeSettings(storedSettings);
+  const requiresMigration = SETTINGS_KEYS.some((key) => normalizedSettings[key] !== storedSettings?.[key]);
+
+  currentSettings = normalizedSettings;
+
+  if (requiresMigration) {
+    await setStorageSettings(currentSettings);
+  }
+
   settingsReady = true;
   await applyNetworkRulesetState(currentSettings);
   if (!isBadgeEnabled(currentSettings)) {
@@ -463,6 +606,7 @@ async function loadSettings() {
 }
 
 async function applySettingsChanges(changedValues) {
+  const previousSettings = currentSettings;
   currentSettings = normalizeSettings({
     ...currentSettings,
     ...changedValues,
@@ -473,6 +617,8 @@ async function applySettingsChanges(changedValues) {
   if (!isBadgeEnabled(currentSettings)) {
     await clearBadgesForAllTabs();
   }
+
+  notifySettingsTransitions(previousSettings, currentSettings);
 
   broadcastSettings(currentSettings);
 }
@@ -613,6 +759,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const host = normalizeHost(message.host) || hostFromUrl(message.url) || hostFromUrl(sender?.tab?.url || '');
     updateHostControl(host, 'paused')
       .then((payload) => {
+        notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
       .catch(() => {
@@ -625,6 +772,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const host = normalizeHost(message.host) || hostFromUrl(message.url) || hostFromUrl(sender?.tab?.url || '');
     updateHostControl(host, 'normal')
       .then((payload) => {
+        notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
       .catch(() => {
@@ -637,6 +785,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const host = normalizeHost(message.host) || hostFromUrl(message.url) || hostFromUrl(sender?.tab?.url || '');
     updateHostControl(host, 'whitelisted')
       .then((payload) => {
+        notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
       .catch(() => {
@@ -649,6 +798,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const host = normalizeHost(message.host) || hostFromUrl(message.url) || hostFromUrl(sender?.tab?.url || '');
     updateHostControl(host, 'normal')
       .then((payload) => {
+        notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
       .catch(() => {
