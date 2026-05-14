@@ -1,6 +1,7 @@
 const STATUS_TIMEOUT_MS = 1400;
 const settingsApi = globalThis.ZeroTraceSettings;
 
+const popupShell = document.querySelector('.popup-shell');
 const enabledInput = document.getElementById('popup-enabled');
 const networkInput = document.getElementById('popup-network');
 const cosmeticInput = document.getElementById('popup-cosmetic');
@@ -16,12 +17,33 @@ const popupSiteNote = document.getElementById('popup-site-note');
 
 let statusTimer = null;
 let siteActionBusy = false;
+let currentThemeMode = 'system';
 const siteControls = {
   url: null,
   host: null,
   unsupportedReason: 'Site controls unavailable for this tab.',
   hostState: null,
 };
+
+function resolveEffectiveTheme(themeMode) {
+  if (typeof settingsApi.resolveEffectiveTheme === 'function') {
+    return settingsApi.resolveEffectiveTheme(themeMode);
+  }
+
+  if (themeMode === 'light' || themeMode === 'dark') {
+    return themeMode;
+  }
+
+  return globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyPopupAppearance(settings) {
+  currentThemeMode = settings['zt.themeMode'];
+  document.documentElement.dataset.ztTheme = resolveEffectiveTheme(currentThemeMode);
+  if (popupShell) {
+    popupShell.dataset.compact = settings['zt.compactPopupMode'] ? 'on' : 'off';
+  }
+}
 
 function readSettingsFromForm() {
   return {
@@ -33,6 +55,7 @@ function readSettingsFromForm() {
 }
 
 function render(settings) {
+  applyPopupAppearance(settings);
   enabledInput.checked = settings['zt.enabled'];
   networkInput.checked = settings['zt.networkBlockingEnabled'];
   cosmeticInput.checked = settings['zt.cosmeticFilteringEnabled'];
@@ -252,6 +275,23 @@ async function init() {
   const settings = await settingsApi.getSettings();
   render(settings);
   await refreshSiteControls(settings);
+
+  const systemThemeQuery = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+  if (systemThemeQuery) {
+    const refreshSystemTheme = () => {
+      if (currentThemeMode !== 'system') {
+        return;
+      }
+
+      document.documentElement.dataset.ztTheme = resolveEffectiveTheme(currentThemeMode);
+    };
+
+    if (typeof systemThemeQuery.addEventListener === 'function') {
+      systemThemeQuery.addEventListener('change', refreshSystemTheme);
+    } else if (typeof systemThemeQuery.addListener === 'function') {
+      systemThemeQuery.addListener(refreshSystemTheme);
+    }
+  }
 
   if (!settingsApi.hasStorageApi) {
     setStatus('Storage unavailable');

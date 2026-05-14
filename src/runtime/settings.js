@@ -1,11 +1,17 @@
 (() => {
+  const THEME_MODE_VALUES = new Set(['system', 'light', 'dark']);
   const DEFAULT_SETTINGS = Object.freeze({
     'zt.enabled': true,
     'zt.networkBlockingEnabled': true,
     'zt.blockAdsEnabled': true,
     'zt.blockTrackingEnabled': true,
+    'zt.blockAnnoyancesEnabled': true,
+    'zt.blockSocialEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
     'zt.badgeEnabled': true,
+    'zt.themeMode': 'system',
+    'zt.notificationsEnabled': false,
+    'zt.compactPopupMode': false,
   });
 
   const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -17,11 +23,37 @@
     }
   })();
 
+  function normalizeThemeMode(value) {
+    return typeof value === 'string' && THEME_MODE_VALUES.has(value) ? value : DEFAULT_SETTINGS['zt.themeMode'];
+  }
+
+  function resolveEffectiveTheme(themeMode) {
+    const normalizedThemeMode = normalizeThemeMode(themeMode);
+    if (normalizedThemeMode !== 'system') {
+      return normalizedThemeMode;
+    }
+
+    let prefersDark = false;
+    try {
+      prefersDark = Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+    } catch {
+      prefersDark = false;
+    }
+
+    return prefersDark ? 'dark' : 'light';
+  }
+
   function normalizeSettings(raw) {
     const next = { ...DEFAULT_SETTINGS };
 
     for (const key of SETTINGS_KEYS) {
       const value = raw?.[key];
+
+      if (key === 'zt.themeMode') {
+        next[key] = normalizeThemeMode(value);
+        continue;
+      }
+
       if (typeof value === 'boolean') {
         next[key] = value;
       }
@@ -63,7 +95,9 @@
     hasStorageApi: Boolean(storageApi?.local),
     getSettings,
     normalizeSettings,
+    normalizeThemeMode,
     resetSettings,
+    resolveEffectiveTheme,
     saveSettings,
   };
 })();

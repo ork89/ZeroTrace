@@ -16,10 +16,34 @@
   --accent-soft: rgba(20, 95, 88, 0.12);
   --warn-soft: rgba(154, 110, 40, 0.12);
   --warn-text: #7c5b1e;
+  --field-bg: rgba(255, 255, 255, 0.86);
+  --field-border: rgba(77, 53, 24, 0.16);
   --shadow: 0 18px 48px rgba(61, 43, 20, 0.12);
   --radius-lg: 24px;
   --radius-md: 18px;
   --radius-sm: 12px;
+}
+
+html[data-zt-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e1518;
+  --bg-accent:
+    radial-gradient(circle at top left, rgba(20, 95, 88, 0.24), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(154, 110, 40, 0.18), transparent 30%),
+    linear-gradient(180deg, #111c20 0%, #0b1216 100%);
+  --panel: rgba(19, 30, 34, 0.86);
+  --panel-strong: #1a272d;
+  --panel-border: rgba(173, 199, 205, 0.18);
+  --text: #e8f0ed;
+  --muted: #afc0bb;
+  --accent: #1d8d83;
+  --accent-strong: #14675f;
+  --accent-soft: rgba(29, 141, 131, 0.16);
+  --warn-soft: rgba(200, 154, 78, 0.16);
+  --warn-text: #e4c58f;
+  --field-bg: rgba(20, 33, 38, 0.9);
+  --field-border: rgba(173, 199, 205, 0.28);
+  --shadow: 0 18px 48px rgba(5, 10, 12, 0.45);
 }
 
 * {
@@ -339,17 +363,128 @@ button:focus-visible {
 }
 
 .preview-label {
-  font-size: 0.94rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .preview-field select {
   width: 100%;
-  border: 1px solid rgba(77, 53, 24, 0.16);
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.8);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 42px 12px 14px;
+  background-color: var(--field-bg);
+  color: var(--text);
+  accent-color: var(--accent);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(15, 20, 18, 0.02);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 21px) calc(50% - 2px),
+    calc(100% - 15px) calc(50% - 2px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+@supports (appearance: base-select) {
+  .preview-field select,
+  .preview-field select::picker(select) {
+    appearance: base-select;
+  }
+
+  .preview-field select {
+    background-image: none;
+    padding-right: 14px;
+  }
+
+  .preview-field select::picker-icon {
+    color: var(--muted);
+    transition: rotate 140ms ease;
+  }
+
+  .preview-field select:open::picker-icon {
+    rotate: 180deg;
+  }
+
+  .preview-field select::picker(select) {
+    border: 1px solid var(--field-border);
+    border-radius: var(--radius-sm);
+    margin-top: 6px;
+    padding: 0;
+    background: var(--panel-strong);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+
+  .preview-field select:open::picker(select) {
+    opacity: 1;
+  }
+
+  @starting-style {
+    .preview-field select:open::picker(select) {
+      opacity: 0;
+    }
+  }
+
+  .preview-field select option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    border: 0;
+    border-bottom: 1px solid var(--panel-border);
+    padding: 10px 12px;
+    background: var(--panel-strong);
+    color: var(--text);
+    transition: background-color 120ms ease;
+  }
+
+  .preview-field select option:last-of-type {
+    border-bottom: 0;
+  }
+
+  .preview-field select option:hover,
+  .preview-field select option:focus-visible {
+    background: var(--accent-soft);
+  }
+
+  .preview-field select option:checked {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .preview-field select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--accent);
+  }
+}
+
+.preview-field select:hover {
+  border-color: rgba(20, 95, 88, 0.42);
+}
+
+.preview-field select:disabled {
   color: var(--muted);
+  opacity: 0.66;
+  background-image: none;
+}
+
+.preview-field select option {
+  background: var(--panel-strong);
+  color: var(--text);
 }
 
 .preview-note {

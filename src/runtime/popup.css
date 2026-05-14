@@ -14,6 +14,21 @@
   --shadow: 0 20px 40px rgba(61, 43, 20, 0.16);
 }
 
+html[data-zt-theme='dark'] {
+  color-scheme: dark;
+  --bg: linear-gradient(180deg, #10191d 0%, #0a1216 100%);
+  --panel: rgba(18, 29, 33, 0.9);
+  --panel-border: rgba(173, 199, 205, 0.18);
+  --text: #e8f0ed;
+  --muted: #aec0bb;
+  --accent: #1d8d83;
+  --accent-strong: #14675f;
+  --accent-soft: rgba(29, 141, 131, 0.18);
+  --warn-soft: rgba(200, 154, 78, 0.18);
+  --warn-text: #e3c58e;
+  --shadow: 0 20px 40px rgba(5, 10, 12, 0.45);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -36,6 +51,11 @@ input {
   padding: 14px;
 }
 
+.popup-shell[data-compact='on'] {
+  gap: 10px;
+  padding: 10px;
+}
+
 .popup-card,
 .popup-footer {
   border: 1px solid var(--panel-border);
@@ -46,6 +66,10 @@ input {
 
 .popup-card {
   padding: 16px;
+}
+
+.popup-shell[data-compact='on'] .popup-card {
+  padding: 12px;
 }
 
 .popup-hero {
@@ -91,6 +115,14 @@ input {
 
 .popup-summary {
   margin: 8px 0 0;
+}
+
+.popup-shell[data-compact='on'] .popup-summary,
+.popup-shell[data-compact='on'] .popup-host,
+.popup-shell[data-compact='on'] .setting-description,
+.popup-shell[data-compact='on'] .preview-note,
+.popup-shell[data-compact='on'] .status {
+  font-size: 0.86rem;
 }
 
 .popup-host {
@@ -146,6 +178,10 @@ input {
   padding: 13px 0;
   border-top: 1px solid rgba(77, 53, 24, 0.1);
   cursor: pointer;
+}
+
+.popup-shell[data-compact='on'] .setting-row {
+  padding: 10px 0;
 }
 
 .setting-row-primary {
