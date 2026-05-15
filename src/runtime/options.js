@@ -15,7 +15,10 @@ const cosmeticInput = document.getElementById('zt-cosmetic');
 const badgeInput = document.getElementById('zt-badge');
 const themeModeInput = document.getElementById('zt-theme-mode');
 const notificationsInput = document.getElementById('zt-notifications');
+const debugDiagnosticsInput = document.getElementById('zt-debug-diagnostics');
 const popupCompactInput = document.getElementById('zt-popup-compact');
+const diagnosticsSnapshot = document.getElementById('zt-diagnostics-snapshot');
+const refreshDiagnosticsButton = document.getElementById('zt-refresh-diagnostics');
 const protectionMode = document.getElementById('zt-protection-mode');
 const protectionNote = document.getElementById('zt-protection-note');
 const chipEnabled = document.getElementById('chip-enabled');
@@ -54,6 +57,7 @@ function readFormSettings() {
     'zt.badgeEnabled': badgeInput.checked,
     'zt.themeMode': themeModeInput.value,
     'zt.notificationsEnabled': notificationsInput.checked,
+    'zt.debugDiagnosticsEnabled': debugDiagnosticsInput.checked,
     'zt.compactPopupMode': popupCompactInput.checked,
   };
 }
@@ -111,6 +115,7 @@ function renderForm(settings) {
   badgeInput.checked = settings['zt.badgeEnabled'];
   themeModeInput.value = settings['zt.themeMode'];
   notificationsInput.checked = settings['zt.notificationsEnabled'];
+  debugDiagnosticsInput.checked = settings['zt.debugDiagnosticsEnabled'];
   popupCompactInput.checked = settings['zt.compactPopupMode'];
 
   const controlsDisabled = !settings['zt.enabled'];
@@ -122,8 +127,35 @@ function renderForm(settings) {
   socialListInput.disabled = listControlsDisabled;
   cosmeticInput.disabled = controlsDisabled;
   badgeInput.disabled = controlsDisabled;
+  notificationsInput.disabled = controlsDisabled;
+  debugDiagnosticsInput.disabled = controlsDisabled;
+  popupCompactInput.disabled = controlsDisabled;
   applyTheme(settings);
   renderSummary(settings);
+}
+
+async function refreshRuntimeDiagnostics() {
+  if (!diagnosticsSnapshot) {
+    return;
+  }
+
+  diagnosticsSnapshot.textContent = 'Loading diagnostics...';
+  const payload = await new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: 'zt-get-runtime-diagnostics' }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+
+        resolve(response || { ok: false, error: 'No diagnostics response.' });
+      });
+    } catch {
+      resolve({ ok: false, error: 'Runtime diagnostics unavailable.' });
+    }
+  });
+
+  diagnosticsSnapshot.textContent = JSON.stringify(payload, null, 2);
 }
 
 function setStatus(message) {
@@ -167,6 +199,13 @@ async function init() {
 
   form.addEventListener('submit', handleSave);
   resetBtn.addEventListener('click', handleReset);
+  refreshDiagnosticsButton?.addEventListener('click', () => {
+    refreshRuntimeDiagnostics().catch(() => {
+      if (diagnosticsSnapshot) {
+        diagnosticsSnapshot.textContent = JSON.stringify({ ok: false, error: 'Unable to refresh diagnostics.' }, null, 2);
+      }
+    });
+  });
   for (const input of [
     enabledInput,
     networkInput,
@@ -178,6 +217,7 @@ async function init() {
     badgeInput,
     themeModeInput,
     notificationsInput,
+    debugDiagnosticsInput,
     popupCompactInput,
   ]) {
     input.addEventListener('change', () => {
@@ -222,9 +262,15 @@ async function init() {
         .then(renderForm)
         .catch(() => {
           // ignore storage refresh errors in the options surface
-        });
+      });
     });
   }
+
+  refreshRuntimeDiagnostics().catch(() => {
+    if (diagnosticsSnapshot) {
+      diagnosticsSnapshot.textContent = JSON.stringify({ ok: false, error: 'Unable to load diagnostics.' }, null, 2);
+    }
+  });
 }
 
 init();
