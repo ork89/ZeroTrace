@@ -8,6 +8,7 @@ export type DnrRule = {
   action: { type: DnrActionType };
   condition: {
     urlFilter: string;
+    isUrlFilterCaseSensitive?: boolean;
     resourceTypes?: string[];
     domainType?: DnrDomainType;
     initiatorDomains?: string[];

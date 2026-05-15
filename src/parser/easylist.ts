@@ -1,5 +1,11 @@
 import { ALL_RESOURCE_TYPES, DEFAULT_RESOURCE_TYPES } from '../config/constants';
 import { DnrRuleWithoutId } from '../types/dnr';
+import { NetworkRuleAst, NetworkRuleModifierAst, NetworkRulePatternAst, TokenizedNetworkRule } from '../types/network-rule';
+import {
+  NetworkInstrumentationObserver,
+  NetworkModifierIssueReason,
+  NetworkRuleSkipReason,
+} from './network-instrumentation';
 
 // Exception rules for known ad-serving infrastructure that we deliberately ignore.
 // EasyList ships allow-rules for these domains to prevent false positives in
@@ -15,125 +21,267 @@ const SUPPRESSED_EXCEPTION_HOSTS = new Set([
   'googleadservices.com',
 ]);
 
-export function parseEasylistLine(line: string): DnrRuleWithoutId | null {
-  if (isIgnorable(line)) {
+const RESOURCE_TYPE_MAP: Record<string, string> = {
+  document: 'main_frame',
+  subdocument: 'sub_frame',
+  frame: 'sub_frame',
+  stylesheet: 'stylesheet',
+  script: 'script',
+  image: 'image',
+  font: 'font',
+  media: 'media',
+  object: 'object',
+  xhr: 'xmlhttprequest',
+  fetch: 'xmlhttprequest',
+  xmlhttprequest: 'xmlhttprequest',
+  beacon: 'ping',
+  ping: 'ping',
+  websocket: 'websocket',
+  webtransport: 'webtransport',
+  webbundle: 'webbundle',
+  'object-subrequest': 'object',
+  other: 'other',
+};
+
+const UNSUPPORTED_MODIFIER_KEYS = new Set([
+  'badfilter',
+  'csp',
+  'denyallow',
+  'header',
+  'ipaddress',
+  'method',
+  'permissions',
+  'redirect',
+  'redirect-rule',
+  'removeheader',
+  'removeparam',
+  'replace',
+  'rewrite',
+  'to',
+  'urlskip',
+  'urltransform',
+]);
+
+export function parseEasylistLine(line: string, observer?: NetworkInstrumentationObserver): DnrRuleWithoutId | null {
+  const tokenized = tokenizeEasylistNetworkRule(line, observer);
+  if (!tokenized) {
+    return null;
+  }
+
+  const ast = parseEasylistNetworkRuleAst(tokenized, observer);
+  if (!ast) {
+    return null;
+  }
+
+  return compileNetworkRuleAst(ast);
+}
+
+export function tokenizeEasylistNetworkRule(
+  line: string,
+  observer?: NetworkInstrumentationObserver,
+): TokenizedNetworkRule | null {
+  const skipReason = getIgnorableReason(line);
+  if (skipReason) {
+    observer?.onRuleSkipped(skipReason);
     return null;
   }
 
   const isException = line.startsWith('@@');
   const clean = isException ? line.slice(2) : line;
   const [rulePart, modifierPart] = clean.split('$');
-
   const normalizedRulePart = rulePart.trim();
-
-  // Drop exception rules that allow known ad-serving hosts.
-  if (isException && isSuppressedExceptionHost(normalizedRulePart)) {
-    return null;
-  }
-
-  const urlFilter = convertToUrlFilter(normalizedRulePart);
-  if (!urlFilter) {
-    return null;
-  }
-
-  const parsedModifiers = parseModifiers(modifierPart);
+  const modifierTokens = modifierPart
+    ? modifierPart
+        .split(',')
+        .map((modifier) => modifier.trim())
+        .filter(Boolean)
+    : [];
 
   return {
-    priority: isException ? 1 : 2,
-    action: { type: isException ? 'allow' : 'block' },
-    condition: {
-      urlFilter,
-      ...parsedModifiers,
-    },
+    original: line,
+    isException,
+    rulePart: normalizedRulePart,
+    modifierTokens,
   };
 }
 
-function isIgnorable(line: string): boolean {
-  return !line || line.startsWith('!') || line.includes('##') || line.includes('#@#') || line.includes('#?#');
-}
-
-function parseModifiers(modifiers?: string): {
-  resourceTypes?: string[];
-  domainType?: 'firstParty' | 'thirdParty';
-  initiatorDomains?: string[];
-  excludedInitiatorDomains?: string[];
-} {
-  if (!modifiers) {
-    return { resourceTypes: [...DEFAULT_RESOURCE_TYPES] };
+export function parseEasylistNetworkRuleAst(
+  tokenized: TokenizedNetworkRule,
+  observer?: NetworkInstrumentationObserver,
+): NetworkRuleAst | null {
+  if (tokenized.isException && isSuppressedExceptionHost(tokenized.rulePart)) {
+    observer?.onRuleSkipped('suppressed-exception-host');
+    return null;
   }
 
-  const resourceTypeMap: Record<string, string> = {
-    document: 'main_frame',
-    subdocument: 'sub_frame',
-    frame: 'sub_frame',
-    stylesheet: 'stylesheet',
-    script: 'script',
-    image: 'image',
-    font: 'font',
-    media: 'media',
-    object: 'object',
-    xhr: 'xmlhttprequest',
-    xmlhttprequest: 'xmlhttprequest',
-    ping: 'ping',
-    websocket: 'websocket',
-    webtransport: 'webtransport',
-    webbundle: 'webbundle',
-    other: 'other',
-  };
+  const pattern = parsePattern(tokenized.rulePart);
+  if (!pattern) {
+    observer?.onRuleSkipped('unsupported-pattern');
+    return null;
+  }
 
+  return {
+    isException: tokenized.isException,
+    pattern,
+    modifiers: parseModifierAst(tokenized.modifierTokens, observer),
+  };
+}
+
+export function compileNetworkRuleAst(ast: NetworkRuleAst): DnrRuleWithoutId {
   const includeResourceTypes = new Set<string>();
   const excludedResourceTypes = new Set<string>();
   const initiatorDomains = new Set<string>();
   const excludedInitiatorDomains = new Set<string>();
   let domainType: 'firstParty' | 'thirdParty' | undefined;
+  let forceAllResourceTypes = false;
+  let isImportant = false;
+  let caseSensitive = false;
 
-  for (const rawModifier of modifiers.split(',')) {
-    const modifier = rawModifier.trim();
-    if (!modifier) {
+  for (const modifier of ast.modifiers) {
+    if (modifier.kind === 'domainType') {
+      domainType = modifier.value;
       continue;
     }
 
-    if (modifier === 'third-party') {
-      domainType = 'thirdParty';
+    if (modifier.kind === 'resourceType') {
+      if (modifier.excluded) {
+        excludedResourceTypes.add(modifier.value);
+      } else {
+        includeResourceTypes.add(modifier.value);
+      }
       continue;
     }
 
-    if (modifier === '~third-party') {
-      domainType = 'firstParty';
+    if (modifier.kind === 'allResourceTypes') {
+      forceAllResourceTypes = true;
       continue;
     }
 
-    if (modifier.startsWith('domain=')) {
-      parseDomainModifier(modifier.slice('domain='.length), initiatorDomains, excludedInitiatorDomains);
+    if (modifier.kind === 'important') {
+      isImportant = true;
+      continue;
+    }
+
+    if (modifier.kind === 'matchCase') {
+      caseSensitive = true;
+      continue;
+    }
+
+    if (modifier.kind === 'initiatorDomain') {
+      if (modifier.excluded) {
+        excludedInitiatorDomains.add(modifier.value);
+      } else {
+        initiatorDomains.add(modifier.value);
+      }
+    }
+  }
+
+  return {
+    priority: resolvePriority(ast.isException, isImportant),
+    action: { type: ast.isException ? 'allow' : 'block' },
+    condition: {
+      urlFilter: compilePattern(ast.pattern),
+      isUrlFilterCaseSensitive: caseSensitive || undefined,
+      resourceTypes: resolveResourceTypes(includeResourceTypes, excludedResourceTypes, forceAllResourceTypes),
+      domainType,
+      initiatorDomains: initiatorDomains.size ? [...initiatorDomains] : undefined,
+      excludedInitiatorDomains: excludedInitiatorDomains.size ? [...excludedInitiatorDomains] : undefined,
+    },
+  };
+}
+
+function getIgnorableReason(line: string): NetworkRuleSkipReason | null {
+  if (!line) {
+    return 'ignored-empty';
+  }
+
+  if (line.startsWith('!')) {
+    return 'ignored-comment';
+  }
+
+  if (line.includes('#?#')) {
+    return 'ignored-procedural-cosmetic';
+  }
+
+  if (line.includes('##') || line.includes('#@#')) {
+    return 'ignored-cosmetic';
+  }
+
+  return null;
+}
+
+function parseModifierAst(
+  modifiers: string[],
+  observer?: NetworkInstrumentationObserver,
+): NetworkRuleModifierAst[] {
+  const parsed: NetworkRuleModifierAst[] = [];
+
+  for (const modifier of modifiers) {
+    const lowerModifier = modifier.toLowerCase();
+
+    if (lowerModifier === 'third-party' || lowerModifier === '3p') {
+      parsed.push({ kind: 'domainType', value: 'thirdParty', raw: modifier });
+      continue;
+    }
+
+    if (
+      lowerModifier === '~third-party' ||
+      lowerModifier === '~3p' ||
+      lowerModifier === 'first-party' ||
+      lowerModifier === '1p'
+    ) {
+      parsed.push({ kind: 'domainType', value: 'firstParty', raw: modifier });
+      continue;
+    }
+
+    if (lowerModifier === 'match-case') {
+      parsed.push({ kind: 'matchCase', raw: modifier });
+      continue;
+    }
+
+    if (lowerModifier === 'important') {
+      parsed.push({ kind: 'important', raw: modifier });
+      continue;
+    }
+
+    if (lowerModifier === 'all') {
+      parsed.push({ kind: 'allResourceTypes', raw: modifier });
+      continue;
+    }
+
+    if (lowerModifier.startsWith('domain=')) {
+      parseDomainModifier(modifier.slice('domain='.length), modifier, parsed, observer);
+      continue;
+    }
+
+    if (lowerModifier.startsWith('~domain=')) {
+      observer?.onModifierIssue('unsupported-modifier', modifier);
+      parsed.push({ kind: 'unknown', raw: modifier });
       continue;
     }
 
     const isExcluded = modifier.startsWith('~');
-    const normalized = isExcluded ? modifier.slice(1) : modifier;
-    const resourceType = resourceTypeMap[normalized];
+    const normalized = (isExcluded ? modifier.slice(1) : modifier).toLowerCase();
+    const resourceType = RESOURCE_TYPE_MAP[normalized];
 
     if (!resourceType) {
+      observer?.onModifierIssue(resolveUnknownModifierReason(normalized), modifier);
+      parsed.push({ kind: 'unknown', raw: modifier });
       continue;
     }
 
-    if (isExcluded) {
-      excludedResourceTypes.add(resourceType);
-    } else {
-      includeResourceTypes.add(resourceType);
-    }
+    parsed.push({ kind: 'resourceType', value: resourceType, excluded: isExcluded, raw: modifier });
   }
 
-  const resolvedResourceTypes = resolveResourceTypes(includeResourceTypes, excludedResourceTypes);
-
-  return {
-    resourceTypes: resolvedResourceTypes,
-    domainType,
-    initiatorDomains: initiatorDomains.size ? [...initiatorDomains] : undefined,
-    excludedInitiatorDomains: excludedInitiatorDomains.size ? [...excludedInitiatorDomains] : undefined,
-  };
+  return parsed;
 }
 
-function parseDomainModifier(rawValue: string, includeSet: Set<string>, excludeSet: Set<string>): void {
+function parseDomainModifier(
+  rawValue: string,
+  rawModifier: string,
+  modifiers: NetworkRuleModifierAst[],
+  observer?: NetworkInstrumentationObserver,
+): void {
   for (const rawDomain of rawValue.split('|')) {
     const domainToken = rawDomain.trim();
     if (!domainToken) {
@@ -143,14 +291,11 @@ function parseDomainModifier(rawValue: string, includeSet: Set<string>, excludeS
     const isExcluded = domainToken.startsWith('~');
     const domain = sanitizeDomain(isExcluded ? domainToken.slice(1) : domainToken);
     if (!domain) {
+      observer?.onModifierIssue('invalid-domain-token', rawModifier);
       continue;
     }
 
-    if (isExcluded) {
-      excludeSet.add(domain);
-    } else {
-      includeSet.add(domain);
-    }
+    modifiers.push({ kind: 'initiatorDomain', value: domain, excluded: isExcluded, raw: rawModifier });
   }
 }
 
@@ -163,9 +308,8 @@ function sanitizeDomain(domain: string): string | null {
   return normalized;
 }
 
-function resolveResourceTypes(includeSet: Set<string>, excludeSet: Set<string>): string[] {
-  const base = includeSet.size ? [...includeSet] : [...DEFAULT_RESOURCE_TYPES];
-
+function resolveResourceTypes(includeSet: Set<string>, excludeSet: Set<string>, forceAll = false): string[] {
+  const base = forceAll ? [...ALL_RESOURCE_TYPES] : includeSet.size ? [...includeSet] : [...DEFAULT_RESOURCE_TYPES];
   const filtered = base.filter((type) => !excludeSet.has(type));
   if (filtered.length) {
     return filtered;
@@ -173,6 +317,23 @@ function resolveResourceTypes(includeSet: Set<string>, excludeSet: Set<string>):
 
   const allFiltered = ALL_RESOURCE_TYPES.filter((type) => !excludeSet.has(type));
   return allFiltered.length ? allFiltered : [...DEFAULT_RESOURCE_TYPES];
+}
+
+function resolveUnknownModifierReason(normalizedModifier: string): NetworkModifierIssueReason {
+  const key = normalizedModifier.split('=')[0];
+  if (UNSUPPORTED_MODIFIER_KEYS.has(key)) {
+    return 'unsupported-modifier';
+  }
+
+  return 'unknown-modifier';
+}
+
+function resolvePriority(isException: boolean, isImportant: boolean): number {
+  if (isImportant) {
+    return isException ? 2 : 3;
+  }
+
+  return isException ? 1 : 2;
 }
 
 function extractHostFromRule(rule: string): string | null {
@@ -218,32 +379,56 @@ function isSafePlainSubstringRule(rule: string): boolean {
   return /[./_\-=?]/.test(rule);
 }
 
-function convertToUrlFilter(rule: string): string | null {
+function isLikelyRegexRule(rule: string): boolean {
+  if (!rule.startsWith('/') || !rule.endsWith('/') || rule.length < 3) {
+    return false;
+  }
+
+  const body = rule.slice(1, -1);
+  return /[()[\]{}+?\\]/.test(body);
+}
+
+function parsePattern(rule: string): NetworkRulePatternAst | null {
   if (rule.startsWith('||')) {
-    // Chrome DNR natively supports ^ as a separator match character.
-    // Replace || with domain-match prefix, leave ^ intact.
-    const withoutPrefix = rule.slice(2);
-    return '*://*.' + withoutPrefix;
+    return { kind: 'domain', raw: rule.slice(2) };
   }
 
   if (rule.startsWith('|http')) {
-    return rule.slice(1);
+    return { kind: 'anchoredHttp', raw: rule.slice(1) };
   }
 
   if (rule.startsWith('|')) {
-    // Left-anchored rule (non-http)
-    return rule.slice(1);
+    return { kind: 'leftAnchored', raw: rule.slice(1) };
   }
 
   if (rule.startsWith('/')) {
-    // Path-only: prefix with * for substring matching
-    return '*' + rule;
+    if (isLikelyRegexRule(rule)) {
+      return null;
+    }
+    return { kind: 'path', raw: rule };
   }
 
-  // Plain substring filter (e.g. "-ad-manager/", ".ads.controller.js")
   if (!rule.includes('#') && isSafePlainSubstringRule(rule)) {
-    return '*' + rule + '*';
+    return { kind: 'substring', raw: rule };
   }
 
   return null;
+}
+
+function compilePattern(pattern: NetworkRulePatternAst): string {
+  if (pattern.kind === 'domain') {
+    // Chrome DNR natively supports ^ as a separator match character.
+    // Replace || with domain-match prefix, leave ^ intact.
+    return '*://*.' + pattern.raw;
+  }
+
+  if (pattern.kind === 'anchoredHttp' || pattern.kind === 'leftAnchored') {
+    return pattern.raw;
+  }
+
+  if (pattern.kind === 'path') {
+    return '*' + pattern.raw;
+  }
+
+  return '*' + pattern.raw + '*';
 }

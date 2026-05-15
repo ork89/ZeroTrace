@@ -1,8 +1,11 @@
 import { SOURCES } from '../config/sources';
+import fs from 'fs';
+import path from 'path';
 import { DnrRule } from '../types/dnr';
 import { CosmeticFilterEntry } from '../types/cosmetic';
 import { parseEasylistLine } from '../parser/easylist';
 import { parseCosmeticFilterLine } from '../parser/cosmetic';
+import { createNetworkInstrumentationObserver, NetworkUnsupportedSummary } from '../parser/network-instrumentation';
 import { fetchText } from '../utils/http';
 import { clearDir, ensureDir } from '../utils/fs';
 import { DIST_DIR, RULES_DIR } from '../config/constants';
@@ -18,6 +21,7 @@ export async function buildExtension(): Promise<void> {
   let globalId = 1;
   const allRuleResources: GeneratedRuleset[] = [];
   const cosmeticEntries: CosmeticFilterEntry[] = [];
+  const instrumentation = createNetworkInstrumentationObserver();
 
   for (const [groupName, url] of Object.entries(SOURCES)) {
     console.log(`\nFetching ${groupName}...`);
@@ -35,7 +39,7 @@ export async function buildExtension(): Promise<void> {
         cosmeticEntries.push(cosmetic);
       }
 
-      const parsed = parseEasylistLine(line);
+      const parsed = parseEasylistLine(line, instrumentation.observer);
       if (!parsed) {
         continue;
       }
@@ -108,13 +112,67 @@ export async function buildExtension(): Promise<void> {
     'ytd-statement-banner-renderer',
     '#player-ads.ytd-watch-flexy',
     'ytd-in-feed-ad-layout-renderer',
-  ].map((selector) => ({ selector, domains: ['youtube.com'], isException: false }));
+  ].map((selector) => ({ kind: 'css-selector' as const, selector, domains: ['youtube.com'], isException: false }));
 
   cosmeticEntries.push(...YOUTUBE_CUSTOM_COSMETIC);
+
+  const CURATED_RUNTIME_SCRIPTLETS: CosmeticFilterEntry[] = [
+    { kind: 'scriptlet', invocation: '+js(adsLoaded)', name: 'adsLoaded', args: [], domains: null, isException: false },
+    { kind: 'scriptlet', invocation: '+js(canRunAds)', name: 'canRunAds', args: [], domains: null, isException: false },
+    {
+      kind: 'scriptlet',
+      invocation: '+js(blockAdBlock)',
+      name: 'blockAdBlock',
+      args: [],
+      domains: null,
+      isException: false,
+    },
+    { kind: 'scriptlet', invocation: '+js(fuckAdBlock)', name: 'fuckAdBlock', args: [], domains: null, isException: false },
+  ];
+
+  cosmeticEntries.push(...CURATED_RUNTIME_SCRIPTLETS);
 
   writeCosmeticRules(cosmeticEntries);
   copyRuntimeAssets();
   generateManifest(allRuleResources);
+  const unsupportedSummary = instrumentation.getSummary();
+  writeUnsupportedSummaryMetadata(unsupportedSummary);
+  printUnsupportedSummary(unsupportedSummary);
 
   console.log('\nBuild complete. Load the unpacked extension from dist/.');
+}
+
+function writeUnsupportedSummaryMetadata(summary: NetworkUnsupportedSummary): void {
+  const outputPath = path.join(DIST_DIR, 'network-unsupported-summary.json');
+  fs.writeFileSync(
+    outputPath,
+    JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      hasUnsupportedEntries: Boolean(Object.keys(summary.rules).length || Object.keys(summary.modifiers).length),
+      summary,
+    }),
+  );
+}
+
+function printUnsupportedSummary(summary: NetworkUnsupportedSummary): void {
+  const ruleEntries = Object.entries(summary.rules);
+  const modifierEntries = Object.entries(summary.modifiers);
+  if (!ruleEntries.length && !modifierEntries.length) {
+    return;
+  }
+
+  console.log('\nNetwork parser unsupported summary:');
+  if (ruleEntries.length) {
+    console.log('  Rules skipped by reason:');
+    for (const [reason, count] of ruleEntries) {
+      console.log(`    - ${reason}: ${count}`);
+    }
+  }
+
+  if (modifierEntries.length) {
+    console.log('  Modifier issues:');
+    for (const [key, count] of modifierEntries) {
+      console.log(`    - ${key}: ${count}`);
+    }
+  }
 }
