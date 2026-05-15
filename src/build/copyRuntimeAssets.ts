@@ -4,6 +4,7 @@ import path from 'path';
 import { DIST_DIR } from '../config/constants';
 
 const RUNTIME_FILES = [
+  'antiantiadblock-engine.js',
   'background.js',
   'content.js',
   'options.html',

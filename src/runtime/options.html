@@ -202,6 +202,19 @@
                 </span>
               </label>
 
+              <label class="setting-row" for="zt-debug-diagnostics">
+                <span class="setting-copy">
+                  <span class="setting-title">Runtime diagnostics logging</span>
+                  <span class="setting-description"
+                    >When enabled, emits structured runtime diagnostics events to the extension console.</span
+                  >
+                </span>
+                <span class="toggle-wrap">
+                  <input id="zt-debug-diagnostics" type="checkbox" />
+                  <span class="toggle-visual" aria-hidden="true"></span>
+                </span>
+              </label>
+
               <label class="setting-row" for="zt-popup-compact">
                 <span class="setting-copy">
                   <span class="setting-title">Compact popup mode</span>
@@ -220,6 +233,21 @@
               Theme preferences, compact popup density, and optional notifications are fully configurable.
             </p>
           </article>
+        </section>
+
+        <section class="settings-card diagnostics-card" aria-labelledby="diagnostics-title">
+          <div class="section-heading">
+            <div>
+              <p class="panel-label">Debug</p>
+              <h2 id="diagnostics-title">Runtime diagnostics snapshot</h2>
+            </div>
+            <button type="button" id="zt-refresh-diagnostics" class="button-secondary">Refresh</button>
+          </div>
+          <p class="preview-note">
+            Counters include selector apply outcomes, scriptlet run/failure/ignored totals, host bypass transitions, and
+            build unsupported summary availability.
+          </p>
+          <pre id="zt-diagnostics-snapshot" class="diagnostics-snapshot" aria-live="polite">{}</pre>
         </section>
 
         <div class="actions-panel">

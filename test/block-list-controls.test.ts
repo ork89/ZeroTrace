@@ -13,6 +13,7 @@ type SettingsShape = {
   'zt.cosmeticFilteringEnabled'?: boolean;
   'zt.badgeEnabled'?: boolean;
   'zt.notificationsEnabled'?: boolean;
+  'zt.debugDiagnosticsEnabled'?: boolean;
   'zt.compactPopupMode'?: boolean;
   'zt.themeMode'?: 'system' | 'light' | 'dark' | string;
 };
@@ -257,7 +258,9 @@ async function runSettingsNormalizationChecks() {
   assert.equal(defaults['zt.blockAnnoyancesEnabled'], true);
   assert.equal(defaults['zt.blockSocialEnabled'], true);
   assert.equal(defaults['zt.themeMode'], 'system');
+  assert.equal(defaults['zt.scriptletRuntimeEnabled'], true);
   assert.equal(defaults['zt.notificationsEnabled'], false);
+  assert.equal(defaults['zt.debugDiagnosticsEnabled'], false);
   assert.equal(defaults['zt.compactPopupMode'], false);
 
   const normalized = api.normalizeSettings({
@@ -266,8 +269,10 @@ async function runSettingsNormalizationChecks() {
     'zt.blockAnnoyancesEnabled': false,
     'zt.blockSocialEnabled': true,
     'zt.networkBlockingEnabled': false,
+    'zt.scriptletRuntimeEnabled': false,
     'zt.themeMode': 'dark',
     'zt.notificationsEnabled': true,
+    'zt.debugDiagnosticsEnabled': true,
     'zt.compactPopupMode': true,
   });
 
@@ -276,18 +281,22 @@ async function runSettingsNormalizationChecks() {
   assert.equal(normalized['zt.blockAnnoyancesEnabled'], false);
   assert.equal(normalized['zt.blockSocialEnabled'], true);
   assert.equal(normalized['zt.networkBlockingEnabled'], false);
+  assert.equal(normalized['zt.scriptletRuntimeEnabled'], false);
   assert.equal(normalized['zt.themeMode'], 'dark');
   assert.equal(normalized['zt.notificationsEnabled'], true);
+  assert.equal(normalized['zt.debugDiagnosticsEnabled'], true);
   assert.equal(normalized['zt.compactPopupMode'], true);
   assert.equal(normalized['zt.enabled'], true);
 
   const normalizedInvalid = api.normalizeSettings({
     'zt.themeMode': 'neon',
     'zt.notificationsEnabled': 'yes',
+    'zt.debugDiagnosticsEnabled': 'yes',
     'zt.compactPopupMode': 1,
   });
   assert.equal(normalizedInvalid['zt.themeMode'], 'system');
   assert.equal(normalizedInvalid['zt.notificationsEnabled'], false);
+  assert.equal(normalizedInvalid['zt.debugDiagnosticsEnabled'], false);
   assert.equal(normalizedInvalid['zt.compactPopupMode'], false);
 }
 

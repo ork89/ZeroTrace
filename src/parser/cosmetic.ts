@@ -20,16 +20,23 @@ export function parseCosmeticFilterLine(line: string): CosmeticFilterEntry | nul
     return null;
   }
 
-  if (selector.startsWith('+js(')) {
-    return null;
-  }
-
   const domains = parseDomainSpec(domainSpec);
+  const scriptlet = parseScriptlet(selector);
+  if (scriptlet) {
+    return {
+      domains,
+      isException,
+      kind: 'scriptlet',
+      invocation: selector,
+      ...scriptlet,
+    };
+  }
 
   return {
     domains,
-    selector,
     isException,
+    kind: 'css-selector',
+    selector,
   };
 }
 
@@ -55,4 +62,26 @@ function sanitizeDomain(input: string): string | null {
   }
 
   return normalized;
+}
+
+function parseScriptlet(selector: string): { name: string; args: string[] } | null {
+  if (!selector.startsWith('+js(') || !selector.endsWith(')')) {
+    return null;
+  }
+
+  const content = selector.slice(4, -1).trim();
+  if (!content) {
+    return null;
+  }
+
+  const [name, ...args] = content
+    .split(',')
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+
+  if (!name) {
+    return null;
+  }
+
+  return { name, args };
 }

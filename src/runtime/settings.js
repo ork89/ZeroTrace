@@ -8,9 +8,11 @@
     'zt.blockAnnoyancesEnabled': true,
     'zt.blockSocialEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
+    'zt.scriptletRuntimeEnabled': true,
     'zt.badgeEnabled': true,
     'zt.themeMode': 'system',
     'zt.notificationsEnabled': false,
+    'zt.debugDiagnosticsEnabled': false,
     'zt.compactPopupMode': false,
   });
 

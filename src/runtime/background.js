@@ -3,6 +3,11 @@ const THEME_MODE_VALUES = new Set(['system', 'light', 'dark']);
 const NOTIFICATION_WINDOW_MS = 60_000;
 const NOTIFICATION_MAX_PER_WINDOW = 3;
 const NOTIFICATION_DEDUP_MS = 12_000;
+const CURATED_SCRIPTLET_ALLOWLIST = new Set(['adsLoaded', 'canRunAds', 'blockAdBlock', 'fuckAdBlock']);
+const EMPTY_SCRIPTLET_INDEX = Object.freeze({
+  globalScriptlets: [],
+  domainToChunk: {},
+});
 
 const DEFAULT_SETTINGS = {
   'zt.enabled': true,
@@ -12,9 +17,11 @@ const DEFAULT_SETTINGS = {
   'zt.blockAnnoyancesEnabled': true,
   'zt.blockSocialEnabled': true,
   'zt.cosmeticFilteringEnabled': true,
+  'zt.scriptletRuntimeEnabled': true,
   'zt.badgeEnabled': true,
   'zt.themeMode': 'system',
   'zt.notificationsEnabled': false,
+  'zt.debugDiagnosticsEnabled': false,
   'zt.compactPopupMode': false,
 };
 
@@ -48,9 +55,42 @@ let pausedHosts = new Set();
 const tabHosts = new Map();
 const notificationDedup = new Map();
 let notificationWindow = [];
+let cosmeticRulesPromise = null;
+let networkUnsupportedSummaryPromise = null;
+const runtimeDiagnostics = {
+  selector: {
+    applySuccesses: 0,
+    applyFailures: 0,
+  },
+  scriptlet: {
+    runs: 0,
+    failures: 0,
+    ignored: 0,
+  },
+  hostBypassTransitions: {},
+};
 
 function normalizeThemeMode(value) {
   return typeof value === 'string' && THEME_MODE_VALUES.has(value) ? value : DEFAULT_SETTINGS['zt.themeMode'];
+}
+
+function incrementCounter(bucket, key, amount = 1) {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return;
+  }
+
+  bucket[key] = (bucket[key] || 0) + amount;
+}
+
+function logDiagnostics(event, payload = {}) {
+  if (!currentSettings['zt.debugDiagnosticsEnabled']) {
+    return;
+  }
+
+  console.info('[ZeroTrace diagnostics]', {
+    event,
+    ...payload,
+  });
 }
 
 function isNotificationAllowed() {
@@ -411,6 +451,8 @@ async function updateHostControl(host, mode) {
     return getHostStateResponse(null);
   }
 
+  const previousState = resolveHostState(normalizedHost);
+
   if (mode === 'paused') {
     whitelistedHosts.delete(normalizedHost);
     pausedHosts.add(normalizedHost);
@@ -425,8 +467,17 @@ async function updateHostControl(host, mode) {
   await persistPerSiteStorageState();
   await replaceManagedSessionRules();
   emitHostStateChanged(normalizedHost);
+  const payload = getHostStateResponse(normalizedHost);
+  const transitionKey = `${previousState}->${payload.state}`;
+  if (previousState !== payload.state) {
+    incrementCounter(runtimeDiagnostics.hostBypassTransitions, transitionKey);
+    logDiagnostics('host-bypass-transition', {
+      host: normalizedHost,
+      transition: transitionKey,
+    });
+  }
 
-  return getHostStateResponse(normalizedHost);
+  return payload;
 }
 
 function normalizeSettings(raw) {
@@ -666,6 +717,271 @@ function resetTabStats(tabId) {
   updateBadge(tabId);
 }
 
+function isScriptletRuntimeEnabled(settings = currentSettings) {
+  return isMasterEnabled(settings) && settings['zt.scriptletRuntimeEnabled'];
+}
+
+async function loadJsonAsset(relativePath) {
+  try {
+    const response = await fetch(chrome.runtime.getURL(relativePath));
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function getNetworkUnsupportedSummaryMetadata() {
+  if (!networkUnsupportedSummaryPromise) {
+    networkUnsupportedSummaryPromise = loadJsonAsset('network-unsupported-summary.json').then((payload) =>
+      payload && typeof payload === 'object' ? payload : null,
+    );
+  }
+
+  return networkUnsupportedSummaryPromise;
+}
+
+async function getRuntimeDiagnosticsSnapshot() {
+  const networkUnsupportedSummary = await getNetworkUnsupportedSummaryMetadata();
+  return {
+    selector: {
+      ...runtimeDiagnostics.selector,
+    },
+    scriptlet: {
+      ...runtimeDiagnostics.scriptlet,
+    },
+    hostBypassTransitions: {
+      ...runtimeDiagnostics.hostBypassTransitions,
+    },
+    networkUnsupportedSummary: {
+      available: Boolean(networkUnsupportedSummary),
+      metadata: networkUnsupportedSummary,
+    },
+  };
+}
+
+async function getCosmeticRules() {
+  if (!cosmeticRulesPromise) {
+    cosmeticRulesPromise = loadJsonAsset('cosmetic-rules.json').then((payload) =>
+      payload && typeof payload === 'object' ? payload : {},
+    );
+  }
+
+  return cosmeticRulesPromise;
+}
+
+function getDomainChain(host) {
+  if (!host) {
+    return [];
+  }
+
+  const parts = host.split('.').filter(Boolean);
+  const out = [];
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    out.push(parts.slice(i).join('.'));
+  }
+
+  return out;
+}
+
+function pickScriptletIndex(indexRoot) {
+  if (!indexRoot || typeof indexRoot !== 'object') {
+    return EMPTY_SCRIPTLET_INDEX;
+  }
+
+  const globalScriptlets = Array.isArray(indexRoot.globalScriptlets) ? indexRoot.globalScriptlets : [];
+  const domainToChunk =
+    indexRoot.domainToChunk && typeof indexRoot.domainToChunk === 'object' ? indexRoot.domainToChunk : {};
+
+  return {
+    globalScriptlets,
+    domainToChunk,
+  };
+}
+
+async function loadDomainScriptlets(host, indexRoot) {
+  const index = pickScriptletIndex(indexRoot);
+  const chunkNames = new Set();
+  for (const domain of getDomainChain(host)) {
+    const chunkName = index.domainToChunk?.[domain];
+    if (typeof chunkName === 'string' && chunkName) {
+      chunkNames.add(chunkName);
+    }
+  }
+
+  if (!chunkNames.size) {
+    return [];
+  }
+
+  const chunkPayloads = await Promise.all([...chunkNames].map((chunkName) => loadJsonAsset(`cosmetic/${chunkName}`)));
+  const scriptlets = [];
+  for (const payload of chunkPayloads) {
+    if (!payload || typeof payload !== 'object') {
+      continue;
+    }
+
+    for (const domain of getDomainChain(host)) {
+      const domainScriptlets = payload[domain];
+      if (Array.isArray(domainScriptlets)) {
+        scriptlets.push(...domainScriptlets);
+      }
+    }
+  }
+
+  return scriptlets;
+}
+
+function normalizeScriptletEntry(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+  if (!name || !CURATED_SCRIPTLET_ALLOWLIST.has(name)) {
+    return null;
+  }
+
+  if (!Array.isArray(raw.args) || raw.args.some((arg) => typeof arg !== 'string')) {
+    return null;
+  }
+
+  if (raw.args.length !== 0) {
+    return null;
+  }
+
+  const invocation =
+    typeof raw.invocation === 'string' && raw.invocation.trim() ? raw.invocation.trim() : `+js(${name})`;
+
+  return {
+    name,
+    args: [],
+    invocation,
+  };
+}
+
+async function resolveScriptletsForHost(host) {
+  const rules = await getCosmeticRules();
+  const scriptletIndex = pickScriptletIndex(rules?.scriptlets);
+  const exceptionIndex = pickScriptletIndex(rules?.exceptions?.scriptlets);
+  const candidates = [...scriptletIndex.globalScriptlets, ...(await loadDomainScriptlets(host, scriptletIndex))];
+  const exceptions = [...exceptionIndex.globalScriptlets, ...(await loadDomainScriptlets(host, exceptionIndex))];
+
+  const allowed = new Map();
+  let ignored = 0;
+  for (const candidate of candidates) {
+    const normalized = normalizeScriptletEntry(candidate);
+    if (normalized) {
+      allowed.set(normalized.invocation, normalized);
+    } else {
+      ignored += 1;
+    }
+  }
+
+  for (const exception of exceptions) {
+    const normalized = normalizeScriptletEntry(exception);
+    if (normalized) {
+      if (allowed.delete(normalized.invocation)) {
+        ignored += 1;
+      }
+    }
+  }
+
+  return {
+    scriptlets: [...allowed.values()],
+    ignored,
+  };
+}
+
+function executeScriptlets(tabId, scriptlets) {
+  if (!scriptlets.length) {
+    return;
+  }
+
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      world: 'MAIN',
+      injectImmediately: true,
+      args: [scriptlets],
+      func: (entries) => {
+        try {
+          const ALLOWED = new Set(['adsLoaded', 'canRunAds', 'blockAdBlock', 'fuckAdBlock']);
+          const setTruthy = (name) => {
+            try {
+              Object.defineProperty(window, name, {
+                configurable: true,
+                get: () => true,
+              });
+            } catch {
+              // ignore property-definition errors
+            }
+          };
+
+          const ensureBlockAdBlock = () => {
+            if (!window.blockAdBlock) {
+              window.blockAdBlock = {
+                onDetected: () => window.blockAdBlock,
+                onNotDetected: () => window.blockAdBlock,
+                check: () => {},
+                clearEvent: () => {},
+              };
+            }
+
+            return window.blockAdBlock;
+          };
+
+          for (const entry of Array.isArray(entries) ? entries : []) {
+            if (!entry || typeof entry !== 'object' || typeof entry.name !== 'string' || !ALLOWED.has(entry.name)) {
+              continue;
+            }
+
+            const args = Array.isArray(entry.args) ? entry.args : [];
+            if (args.length !== 0) {
+              continue;
+            }
+
+            switch (entry.name) {
+              case 'adsLoaded':
+              case 'canRunAds':
+                setTruthy(entry.name);
+                break;
+              case 'blockAdBlock':
+                ensureBlockAdBlock();
+                break;
+              case 'fuckAdBlock':
+                window.fuckAdBlock = ensureBlockAdBlock();
+                break;
+              default:
+                break;
+            }
+          }
+        } catch {
+          // ignore scriptlet errors to avoid page disruption
+        }
+      },
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        incrementCounter(runtimeDiagnostics.scriptlet, 'failures', scriptlets.length);
+        logDiagnostics('scriptlet-run-failed', {
+          tabId,
+          count: scriptlets.length,
+          error: chrome.runtime.lastError.message,
+        });
+        return;
+      }
+
+      const stats = getStats(tabId);
+      stats.scriptlet += scriptlets.length;
+      incrementCounter(runtimeDiagnostics.scriptlet, 'runs', scriptlets.length);
+      updateBadge(tabId);
+    },
+  );
+}
+
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== 'loading' || !tab.url || !/^https?:/i.test(tab.url)) {
     return;
@@ -684,59 +1000,20 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 
   resetTabStats(tabId);
 
-  if (isHostBypassed(host)) {
+  if (isHostBypassed(host) || !isScriptletRuntimeEnabled()) {
+    incrementCounter(runtimeDiagnostics.scriptlet, 'ignored', 1);
     updateBadge(tabId);
     return;
   }
 
-  chrome.scripting.executeScript(
-    {
-      target: { tabId },
-      world: 'MAIN',
-      injectImmediately: true,
-      func: () => {
-        try {
-          const setTruthy = (name) => {
-            try {
-              Object.defineProperty(window, name, {
-                configurable: true,
-                get: () => true,
-              });
-            } catch {
-              // ignore property-definition errors
-            }
-          };
-
-          setTruthy('adsLoaded');
-          setTruthy('canRunAds');
-
-          if (!window.blockAdBlock) {
-            window.blockAdBlock = {
-              onDetected: () => window.blockAdBlock,
-              onNotDetected: () => window.blockAdBlock,
-              check: () => {},
-              clearEvent: () => {},
-            };
-          }
-
-          if (!window.fuckAdBlock) {
-            window.fuckAdBlock = window.blockAdBlock;
-          }
-        } catch {
-          // ignore scriptlet errors to avoid page disruption
-        }
-      },
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        return;
-      }
-
-      const stats = getStats(tabId);
-      stats.scriptlet += 1;
-      updateBadge(tabId);
-    },
-  );
+  resolveScriptletsForHost(host)
+    .then(({ scriptlets, ignored }) => {
+      incrementCounter(runtimeDiagnostics.scriptlet, 'ignored', ignored);
+      executeScriptlets(tabId, scriptlets);
+    })
+    .catch(() => {
+      // ignore scriptlet resolution failures to keep runtime stable
+    });
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -830,6 +1107,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'zt-get-runtime-diagnostics') {
+    getRuntimeDiagnosticsSnapshot()
+      .then((diagnostics) => {
+        sendResponse?.({
+          ok: true,
+          diagnostics,
+        });
+      })
+      .catch(() => {
+        sendResponse?.({
+          ok: false,
+          error: 'Failed to collect runtime diagnostics.',
+        });
+      });
+    return true;
+  }
+
   if (message.type !== 'zerotrace-cosmetic-applied' || !settingsReady || !isCosmeticEnabled()) {
     sendResponse?.({ ok: true });
     return;
@@ -849,6 +1143,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   const stats = getStats(tabId);
+  const selectorAppliedCount = Number.isFinite(message.selectorAppliedCount)
+    ? Math.max(0, Number(message.selectorAppliedCount))
+    : Math.max(0, Number(message.count) || 0);
+  const selectorFailedCount = Number.isFinite(message.selectorFailedCount) ? Math.max(0, Number(message.selectorFailedCount)) : 0;
+  incrementCounter(runtimeDiagnostics.selector, 'applySuccesses', selectorAppliedCount);
+  incrementCounter(runtimeDiagnostics.selector, 'applyFailures', selectorFailedCount);
   stats.cosmetic = Number.isFinite(message.count) ? Math.max(0, Number(message.count)) : 0;
   updateBadge(tabId);
   sendResponse?.({ ok: true });

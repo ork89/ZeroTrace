@@ -98,6 +98,26 @@ button {
   box-shadow: var(--shadow);
 }
 
+.diagnostics-card {
+  margin-top: 20px;
+}
+
+.diagnostics-snapshot {
+  margin: 14px 0 0;
+  padding: 14px;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .hero-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
@@ -394,82 +414,6 @@ button:focus-visible {
     border-color 140ms ease,
     box-shadow 140ms ease,
     background-color 140ms ease;
-}
-
-@supports (appearance: base-select) {
-  .preview-field select,
-  .preview-field select::picker(select) {
-    appearance: base-select;
-  }
-
-  .preview-field select {
-    background-image: none;
-    padding-right: 14px;
-  }
-
-  .preview-field select::picker-icon {
-    color: var(--muted);
-    transition: rotate 140ms ease;
-  }
-
-  .preview-field select:open::picker-icon {
-    rotate: 180deg;
-  }
-
-  .preview-field select::picker(select) {
-    border: 1px solid var(--field-border);
-    border-radius: var(--radius-sm);
-    margin-top: 6px;
-    padding: 0;
-    background: var(--panel-strong);
-    box-shadow: var(--shadow);
-    opacity: 0;
-    transition: opacity 140ms ease;
-  }
-
-  .preview-field select:open::picker(select) {
-    opacity: 1;
-  }
-
-  @starting-style {
-    .preview-field select:open::picker(select) {
-      opacity: 0;
-    }
-  }
-
-  .preview-field select option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-    border: 0;
-    border-bottom: 1px solid var(--panel-border);
-    padding: 10px 12px;
-    background: var(--panel-strong);
-    color: var(--text);
-    transition: background-color 120ms ease;
-  }
-
-  .preview-field select option:last-of-type {
-    border-bottom: 0;
-  }
-
-  .preview-field select option:hover,
-  .preview-field select option:focus-visible {
-    background: var(--accent-soft);
-  }
-
-  .preview-field select option:checked {
-    background: var(--accent-soft);
-    color: var(--accent-strong);
-    font-weight: 600;
-  }
-
-  .preview-field select option::checkmark {
-    order: 1;
-    margin-left: auto;
-    color: var(--accent);
-  }
 }
 
 .preview-field select:hover {

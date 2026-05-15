@@ -15,6 +15,7 @@
     'zt.blockAdsEnabled': true,
     'zt.blockTrackingEnabled': true,
     'zt.cosmeticFilteringEnabled': true,
+    'zt.scriptletRuntimeEnabled': true,
     'zt.badgeEnabled': true,
   };
   const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
