@@ -1,4 +1,5 @@
-const STATUS_TIMEOUT_MS = 1400;
+const STATUS_TIMEOUT_MS = 5000;
+const ERROR_STATUS_TIMEOUT_MS = 9000;
 const settingsApi = globalThis.ZeroTraceSettings;
 
 const popupShell = document.querySelector('.popup-shell');
@@ -21,7 +22,7 @@ let currentThemeMode = 'system';
 const siteControls = {
   url: null,
   host: null,
-  unsupportedReason: 'Site controls unavailable for this tab.',
+  unsupportedReason: 'Site controls unavailable for this page.',
   hostState: null,
 };
 
@@ -93,7 +94,7 @@ function normalizeHostFromUrl(url) {
 
 function getUnsupportedReason(url) {
   if (typeof url !== 'string' || !url) {
-    return 'Site controls unavailable for this tab.';
+    return 'Site controls unavailable for this page.';
   }
 
   try {
@@ -108,8 +109,20 @@ function getUnsupportedReason(url) {
 
     return '';
   } catch {
-    return 'Site controls unavailable for this tab.';
+    return 'Site controls unavailable for this page.';
   }
+}
+
+function getErrorMessage(error, fallback) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+
+  return fallback;
 }
 
 function queryActiveTab() {
@@ -181,10 +194,10 @@ function renderSiteControls(settings) {
     return;
   }
 
-  popupSiteNote.textContent = 'Use these controls for the current tab only.';
+  popupSiteNote.textContent = 'Use these controls for this site across tabs.';
 }
 
-function setStatus(message) {
+function setStatus(message, timeoutMs = STATUS_TIMEOUT_MS) {
   popupStatus.textContent = message;
 
   if (statusTimer) {
@@ -193,19 +206,24 @@ function setStatus(message) {
 
   statusTimer = setTimeout(() => {
     popupStatus.textContent = '';
-  }, STATUS_TIMEOUT_MS);
+  }, timeoutMs);
 }
 
 async function persistCurrentSettings() {
-  const currentSettings = await settingsApi.getSettings();
-  const nextSettings = settingsApi.normalizeSettings({
-    ...currentSettings,
-    ...readSettingsFromForm(),
-  });
-  await settingsApi.saveSettings(nextSettings);
-  render(nextSettings);
-  await refreshSiteControls(nextSettings);
-  setStatus('Saved');
+  try {
+    const currentSettings = await settingsApi.getSettings();
+    const nextSettings = settingsApi.normalizeSettings({
+      ...currentSettings,
+      ...readSettingsFromForm(),
+    });
+    await settingsApi.saveSettings(nextSettings);
+    render(nextSettings);
+    await refreshSiteControls(nextSettings);
+    setStatus('Saved changes.');
+  } catch (error) {
+    setStatus(`Could not save settings: ${getErrorMessage(error, 'Unknown error')}`, ERROR_STATUS_TIMEOUT_MS);
+    throw error;
+  }
 }
 
 async function refreshSiteControls(settings) {
@@ -231,10 +249,10 @@ async function refreshSiteControls(settings) {
       if (response?.ok) {
         siteControls.hostState = response;
       } else {
-        siteControls.unsupportedReason = 'Unable to load site controls for this tab.';
+        siteControls.unsupportedReason = 'Unable to load site controls for this site.';
       }
     } catch {
-      siteControls.unsupportedReason = 'Unable to load site controls for this tab.';
+      siteControls.unsupportedReason = 'Unable to load site controls for this site.';
     }
   }
 
@@ -258,16 +276,20 @@ async function applySiteAction({ actionType, successMessage }) {
     });
 
     if (!response?.ok) {
-      throw new Error('action-failed');
+      throw new Error(response?.error || 'Unable to update site controls.');
     }
 
     setStatus(successMessage(siteControls.host));
-  } catch {
-    setStatus('Site action failed');
+  } catch (error) {
+    setStatus(`Could not update site controls: ${getErrorMessage(error, 'Unknown error')}`, ERROR_STATUS_TIMEOUT_MS);
   } finally {
     siteActionBusy = false;
-    const nextSettings = await settingsApi.getSettings();
-    await refreshSiteControls(nextSettings);
+    try {
+      const nextSettings = await settingsApi.getSettings();
+      await refreshSiteControls(nextSettings);
+    } catch {
+      // keep the popup responsive even if state refresh fails
+    }
   }
 }
 
@@ -294,14 +316,12 @@ async function init() {
   }
 
   if (!settingsApi.hasStorageApi) {
-    setStatus('Storage unavailable');
+    setStatus('Storage API unavailable in this popup context.', ERROR_STATUS_TIMEOUT_MS);
   }
 
   for (const input of [enabledInput, networkInput, cosmeticInput, badgeInput]) {
     input.addEventListener('change', () => {
-      persistCurrentSettings().catch(() => {
-        setStatus('Save failed');
-      });
+      persistCurrentSettings().catch(() => {});
     });
   }
 
@@ -314,8 +334,6 @@ async function init() {
     applySiteAction({
       actionType: paused ? 'zt-resume-host' : 'zt-pause-host',
       successMessage: (host) => (paused ? `Resumed on ${host}` : `Paused on ${host}`),
-    }).catch(() => {
-      setStatus('Site action failed');
     });
   });
 
@@ -324,8 +342,6 @@ async function init() {
     applySiteAction({
       actionType: whitelisted ? 'zt-unwhitelist-host' : 'zt-whitelist-host',
       successMessage: (host) => (whitelisted ? `Enabled on ${host}` : `Disabled on ${host}`),
-    }).catch(() => {
-      setStatus('Site action failed');
     });
   });
 

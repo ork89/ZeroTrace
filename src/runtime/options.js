@@ -1,4 +1,5 @@
-const STATUS_TIMEOUT_MS = 1800;
+const STATUS_TIMEOUT_MS = 5000;
+const ERROR_STATUS_TIMEOUT_MS = 9000;
 const settingsApi = globalThis.ZeroTraceSettings;
 
 const form = document.getElementById('settings-form');
@@ -158,7 +159,19 @@ async function refreshRuntimeDiagnostics() {
   diagnosticsSnapshot.textContent = JSON.stringify(payload, null, 2);
 }
 
-function setStatus(message) {
+function getErrorMessage(error, fallback) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+
+  return fallback;
+}
+
+function setStatus(message, timeoutMs = STATUS_TIMEOUT_MS) {
   status.textContent = message;
 
   if (statusTimer) {
@@ -167,26 +180,34 @@ function setStatus(message) {
 
   statusTimer = setTimeout(() => {
     status.textContent = '';
-  }, STATUS_TIMEOUT_MS);
+  }, timeoutMs);
 }
 
 async function handleSave(event) {
   event.preventDefault();
 
-  const currentSettings = await settingsApi.getSettings();
-  const nextSettings = settingsApi.normalizeSettings({
-    ...currentSettings,
-    ...readFormSettings(),
-  });
-  await settingsApi.saveSettings(nextSettings);
-  renderForm(nextSettings);
-  setStatus('Settings saved.');
+  try {
+    const currentSettings = await settingsApi.getSettings();
+    const nextSettings = settingsApi.normalizeSettings({
+      ...currentSettings,
+      ...readFormSettings(),
+    });
+    await settingsApi.saveSettings(nextSettings);
+    renderForm(nextSettings);
+    setStatus('Settings saved.');
+  } catch (error) {
+    setStatus(`Could not save settings: ${getErrorMessage(error, 'Unknown error')}`, ERROR_STATUS_TIMEOUT_MS);
+  }
 }
 
 async function handleReset() {
-  await settingsApi.resetSettings();
-  renderForm(settingsApi.DEFAULT_SETTINGS);
-  setStatus('Defaults restored.');
+  try {
+    await settingsApi.resetSettings();
+    renderForm(settingsApi.DEFAULT_SETTINGS);
+    setStatus('Defaults restored.');
+  } catch (error) {
+    setStatus(`Could not restore defaults: ${getErrorMessage(error, 'Unknown error')}`, ERROR_STATUS_TIMEOUT_MS);
+  }
 }
 
 async function init() {
@@ -194,7 +215,7 @@ async function init() {
   renderForm(settings);
 
   if (!settingsApi.hasStorageApi) {
-    setStatus('Storage API unavailable in this context.');
+    setStatus('Storage API unavailable in this context.', ERROR_STATUS_TIMEOUT_MS);
   }
 
   form.addEventListener('submit', handleSave);
