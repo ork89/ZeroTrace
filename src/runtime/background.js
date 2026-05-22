@@ -1039,8 +1039,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
-      .catch(() => {
-        sendResponse?.({ ok: false });
+      .catch((error) => {
+        sendResponse?.({
+          ok: false,
+          error: error instanceof Error && error.message ? error.message : 'Unable to update site controls.',
+        });
       });
     return true;
   }
@@ -1052,8 +1055,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
-      .catch(() => {
-        sendResponse?.({ ok: false });
+      .catch((error) => {
+        sendResponse?.({
+          ok: false,
+          error: error instanceof Error && error.message ? error.message : 'Unable to update site controls.',
+        });
       });
     return true;
   }
@@ -1065,8 +1071,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
-      .catch(() => {
-        sendResponse?.({ ok: false });
+      .catch((error) => {
+        sendResponse?.({
+          ok: false,
+          error: error instanceof Error && error.message ? error.message : 'Unable to update site controls.',
+        });
       });
     return true;
   }
@@ -1078,8 +1087,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         notifyHostStateChange(payload?.host, payload?.state);
         sendResponse?.(payload);
       })
-      .catch(() => {
-        sendResponse?.({ ok: false });
+      .catch((error) => {
+        sendResponse?.({
+          ok: false,
+          error: error instanceof Error && error.message ? error.message : 'Unable to update site controls.',
+        });
       });
     return true;
   }

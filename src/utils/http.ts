@@ -2,13 +2,14 @@ import https from 'https';
 
 const MAX_REDIRECTS = 5;
 
-export async function fetchText(url: string): Promise<string> {
-  return fetchTextWithRedirect(url, 0);
+export async function fetchText(url: string, trustedHosts: readonly string[]): Promise<string> {
+  return fetchTextWithRedirect(url, 0, trustedHosts);
 }
 
-function fetchTextWithRedirect(url: string, redirectCount: number): Promise<string> {
+function fetchTextWithRedirect(url: string, redirectCount: number, trustedHosts: readonly string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, (res) => {
+    const requestUrl = assertTrustedUrl(url, trustedHosts);
+    const req = https.get(requestUrl, (res) => {
       const status = res.statusCode ?? 0;
       const location = res.headers.location;
 
@@ -19,8 +20,8 @@ function fetchTextWithRedirect(url: string, redirectCount: number): Promise<stri
         }
 
         res.resume();
-        const nextUrl = new URL(location, url).toString();
-        fetchTextWithRedirect(nextUrl, redirectCount + 1).then(resolve).catch(reject);
+        const nextUrl = new URL(location, requestUrl).toString();
+        fetchTextWithRedirect(nextUrl, redirectCount + 1, trustedHosts).then(resolve).catch(reject);
         return;
       }
 
@@ -40,4 +41,18 @@ function fetchTextWithRedirect(url: string, redirectCount: number): Promise<stri
 
     req.on('error', reject);
   });
+}
+
+function assertTrustedUrl(url: string, trustedHosts: readonly string[]): string {
+  const parsed = new URL(url);
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Refusing to fetch non-HTTPS URL: ${url}`);
+  }
+
+  if (!trustedHosts.includes(parsed.hostname)) {
+    throw new Error(`Refusing to fetch untrusted host: ${parsed.hostname}`);
+  }
+
+  return parsed.toString();
 }

@@ -280,7 +280,4 @@ async function run() {
   console.log('background notifications regression checks passed');
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+export default run();

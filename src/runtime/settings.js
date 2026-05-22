@@ -81,8 +81,13 @@
       return;
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       storageApi.local.set(normalizeSettings(nextSettings), () => {
+        if (globalThis.chrome?.runtime?.lastError) {
+          reject(new Error(globalThis.chrome.runtime.lastError.message));
+          return;
+        }
+
         resolve();
       });
     });

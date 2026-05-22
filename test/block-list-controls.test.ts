@@ -306,7 +306,4 @@ async function run() {
   console.log('block-list controls regression checks passed');
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+export default run();
