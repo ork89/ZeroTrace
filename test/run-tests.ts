@@ -15,7 +15,10 @@ async function run(): Promise<void> {
 
   for (const file of files) {
     const absPath = path.join(testDir, file);
-    await import(pathToFileURL(absPath).href);
+    const module = await import(pathToFileURL(absPath).href);
+    if (module.default && typeof module.default.then === 'function') {
+      await module.default;
+    }
   }
 
   console.log(`Executed ${files.length} test file(s)`);

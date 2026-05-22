@@ -254,7 +254,4 @@ async function run() {
   console.log('scriptlet runtime regression checks passed');
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+export default run();
