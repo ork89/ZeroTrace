@@ -31,10 +31,10 @@ export async function buildExtension(): Promise<void> {
   const cosmeticEntries: CosmeticFilterEntry[] = [];
   const instrumentation = createNetworkInstrumentationObserver();
 
-  for (const [groupName, url] of Object.entries(SOURCES)) {
+  for (const [groupName, source] of Object.entries(SOURCES)) {
     console.log(`\nFetching ${groupName}...`);
 
-    const text = await fetchText(url);
+    const text = await fetchText(source.url, source.trustedHosts);
     const lines = text.split('\n');
 
     const rules: DnrRule[] = [];
@@ -166,7 +166,6 @@ function writeUnsupportedSummaryMetadata(summary: NetworkUnsupportedSummary): vo
   fs.writeFileSync(
     outputPath,
     JSON.stringify({
-      generatedAt: new Date().toISOString(),
       hasUnsupportedEntries: Boolean(Object.keys(summary.rules).length || Object.keys(summary.modifiers).length),
       summary,
     }),
