@@ -8,11 +8,19 @@ import { parseCosmeticFilterLine } from '../parser/cosmetic';
 import { createNetworkInstrumentationObserver, NetworkUnsupportedSummary } from '../parser/network-instrumentation';
 import { fetchText } from '../utils/http';
 import { clearDir, ensureDir } from '../utils/fs';
-import { DIST_DIR, RULES_DIR } from '../config/constants';
+import { DIST_DIR, RULES_DIR, TRACKING_DEFAULT_RESOURCE_TYPES } from '../config/constants';
 import { writeRuleset, GeneratedRuleset } from '../build/writeRules';
 import { generateManifest } from '../build/generateManifest';
 import { writeCosmeticRules } from '../build/writeCosmeticRules';
 import { copyRuntimeAssets } from '../build/copyRuntimeAssets';
+
+// Compatibility-first default for list-derived rules: when a rule has no
+// explicit resource-type modifier, do not block scripts by default. This avoids
+// blank-page regressions when a site initialises through third-party SDKs with
+// generic host/path rules (e.g. */gpt.js, *.kueezrtb.com, *.script.ac).
+//
+// Script blocking still applies when list rules explicitly include $script.
+const NON_SCRIPT_DEFAULT_GROUPS = new Set(['ads', 'tracking', 'annoyances', 'social']);
 
 export async function buildExtension(): Promise<void> {
   clearDir(DIST_DIR);
@@ -31,6 +39,10 @@ export async function buildExtension(): Promise<void> {
 
     const rules: DnrRule[] = [];
 
+    const parseOptions = NON_SCRIPT_DEFAULT_GROUPS.has(groupName)
+      ? { defaultResourceTypes: TRACKING_DEFAULT_RESOURCE_TYPES }
+      : undefined;
+
     for (const rawLine of lines) {
       const line = rawLine.trim();
 
@@ -39,7 +51,7 @@ export async function buildExtension(): Promise<void> {
         cosmeticEntries.push(cosmetic);
       }
 
-      const parsed = parseEasylistLine(line, instrumentation.observer);
+      const parsed = parseEasylistLine(line, instrumentation.observer, parseOptions);
       if (!parsed) {
         continue;
       }
@@ -127,7 +139,14 @@ export async function buildExtension(): Promise<void> {
       domains: null,
       isException: false,
     },
-    { kind: 'scriptlet', invocation: '+js(fuckAdBlock)', name: 'fuckAdBlock', args: [], domains: null, isException: false },
+    {
+      kind: 'scriptlet',
+      invocation: '+js(fuckAdBlock)',
+      name: 'fuckAdBlock',
+      args: [],
+      domains: null,
+      isException: false,
+    },
   ];
 
   cosmeticEntries.push(...CURATED_RUNTIME_SCRIPTLETS);

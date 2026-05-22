@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
-import { parseEasylistLine } from '../src/parser/easylist';
+import { compileNetworkRuleAst, parseEasylistLine } from '../src/parser/easylist';
+import { ALL_RESOURCE_TYPES } from '../src/config/constants';
 import { createNetworkInstrumentationObserver } from '../src/parser/network-instrumentation';
 
 function expectNull(line: string): void {
@@ -49,6 +50,23 @@ const allTypesRule = expectParsed('||cdn.example.com^$all,~image,beacon');
 assert.ok(allTypesRule.condition.resourceTypes?.includes('main_frame'));
 assert.equal(allTypesRule.condition.resourceTypes?.includes('image'), false);
 assert.ok(allTypesRule.condition.resourceTypes?.includes('ping'));
+
+// When all known resource types are explicitly excluded, avoid leaking excluded
+// defaults and avoid producing invalid empty resourceTypes arrays.
+const allExcludedRule = compileNetworkRuleAst({
+  isException: false,
+  pattern: { kind: 'domain' as const, raw: 'cdn.example.com^' },
+  modifiers: [
+    { kind: 'allResourceTypes' as const, raw: 'all' },
+    ...ALL_RESOURCE_TYPES.map((type) => ({
+      kind: 'resourceType' as const,
+      value: type,
+      excluded: true,
+      raw: `~${type}`,
+    })),
+  ],
+});
+assert.equal(allExcludedRule.condition.resourceTypes, undefined);
 
 // Unsupported/unknown modifiers should be tracked deterministically.
 const { observer, getSummary } = createNetworkInstrumentationObserver();

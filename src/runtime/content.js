@@ -24,11 +24,82 @@
   let hostBypassed = false;
   let observer = null;
   let rafPending = false;
+  let blankRecoveryAttempted = false;
   const antiAntiAdblockEngine = globalThis.ZeroTraceAntiAntiAdblockEngine?.createEngine({
     win: window,
     doc: document,
     pageLocation: location,
   });
+
+  function hasViewportReadableSignal() {
+    /**
+     * Check if the viewport contains readable content by sampling 3 positions
+     * and testing for significant interactive or text elements.
+     *
+     * Thresholds:
+     * - Minimum element area: 1200px² (filters tiny decorative elements)
+     * - Minimum text content: 8 characters (filters whitespace and placeholders)
+     *
+     * Performance: O(constant) - checks fixed number of 3 positions × max 8 elements
+     * deep in element stack. Fast enough to call repeatedly during recovery.
+     *
+     * @returns {boolean} true if viewport contains substantial readable content
+     */
+    const samples = [
+      [Math.floor(window.innerWidth * 0.5), Math.floor(window.innerHeight * 0.5)],
+      [Math.floor(window.innerWidth * 0.2), Math.floor(window.innerHeight * 0.25)],
+      [Math.floor(window.innerWidth * 0.8), Math.floor(window.innerHeight * 0.25)],
+    ];
+
+    for (const [x, y] of samples) {
+      const stack = document.elementsFromPoint(x, y).slice(0, 8);
+      for (const node of stack) {
+        if (!(node instanceof HTMLElement)) {
+          continue;
+        }
+
+        if (node === document.body || node === document.documentElement) {
+          continue;
+        }
+
+        const rect = node.getBoundingClientRect();
+        if (rect.width * rect.height < 1200) {
+          continue;
+        }
+
+        if (node.matches('img,video,canvas,svg,a,button,input,article,section,main,[role="main"]')) {
+          return true;
+        }
+
+        const text = (node.textContent || '').trim();
+        if (text.length >= 8) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  function recoverFromBlankViewport() {
+    if (blankRecoveryAttempted || window.scrollY <= window.innerHeight) {
+      return;
+    }
+
+    const bodyTextLength = (document.body?.innerText || '').trim().length;
+    if (bodyTextLength < 1200) {
+      return;
+    }
+
+    if (hasViewportReadableSignal()) {
+      return;
+    }
+
+    blankRecoveryAttempted = true;
+    document.documentElement.style.setProperty('overflow', 'auto', 'important');
+    document.body?.style.setProperty('overflow', 'auto', 'important');
+    window.scrollTo(0, 0);
+  }
 
   function normalizeHost(host) {
     if (typeof host !== 'string') {
@@ -278,7 +349,12 @@
 
     const selectorResult = ensureStyle(selectors, cssRef);
     const suppressedCount = annoyancesEnabled ? suppressKnownAntiAdblockOverlays() : 0;
-    reportCosmeticCount(selectorResult.appliedCount + suppressedCount, selectorResult.appliedCount, selectorResult.failedCount);
+    reportCosmeticCount(
+      selectorResult.appliedCount + suppressedCount,
+      selectorResult.appliedCount,
+      selectorResult.failedCount,
+    );
+    recoverFromBlankViewport();
     startObserver(() => {
       ensureStyle(selectors, cssRef);
       if (isAnnoyancesEnabled()) {
@@ -286,6 +362,7 @@
       } else {
         restoreSuppressedOverlays();
       }
+      recoverFromBlankViewport();
     });
   }
 
@@ -398,6 +475,14 @@
       applyCurrentMode().catch(() => {
         // ignore dynamic host-state apply errors to keep pages stable
       });
+    });
+
+    // Reset blank recovery flag when page becomes visible (common in SPAs during route changes).
+    // This ensures blank page recovery can attempt again if navigation breaks the viewport.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        blankRecoveryAttempted = false;
+      }
     });
   }
 
