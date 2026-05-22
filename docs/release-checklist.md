@@ -14,8 +14,8 @@ Use this checklist for every v1 release candidate.
 ### Scope and packaging gates
 
 - [ ] Confirm release stays within the v1 support contract in `README.md` (no new syntax/runtime scope expansion).
-- [ ] Confirm `manifest.json` version is bumped for the release.
-- [ ] Confirm release notes summarize user-visible behavior changes and known limitations.
+- [ ] Confirm `manifest.json` version is bumped for the release source manifest (the build copies it into `dist/manifest.json`; keep `package.json`/`package-lock.json` aligned if they are used for release metadata).
+- [ ] Confirm `docs/release-notes-v1.md` summarizes user-visible behavior changes, known limitations, and submission notes.
 
 ## 2) Manual QA critical flows (release sign-off)
 
@@ -33,16 +33,16 @@ Use the same tested `dist/` artifact unless a store policy rejection forces a do
 
 ### Chrome Web Store
 
-1. Zip the release artifact from `dist/`.
+1. Zip the tested ship artifact from `dist/` (do not package source files).
 2. Upload in Chrome Web Store Developer Dashboard.
 3. Update listing text/screenshots if behavior changed.
-4. Submit for review and record submission ID/date in release notes.
+4. Submit for review and record submission ID/date in `docs/release-notes-v1.md`.
 
 ### Edge Add-ons
 
-1. Upload the same zip in Microsoft Partner Center (Edge Add-ons).
+1. Upload the same zip created from `dist/` in Microsoft Partner Center (Edge Add-ons).
 2. Update store listing metadata to match Chrome release messaging.
-3. Submit for certification and record submission ID/date.
+3. Submit for certification and record submission ID/date in `docs/release-notes-v1.md`.
 
 ### Differences to track
 
