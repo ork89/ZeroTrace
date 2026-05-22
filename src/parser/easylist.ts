@@ -1,6 +1,16 @@
 import { ALL_RESOURCE_TYPES, DEFAULT_RESOURCE_TYPES } from '../config/constants';
 import { DnrRuleWithoutId } from '../types/dnr';
-import { NetworkRuleAst, NetworkRuleModifierAst, NetworkRulePatternAst, TokenizedNetworkRule } from '../types/network-rule';
+
+export type ParseEasylistOptions = {
+  /** Override the resource types applied when a rule has no explicit type modifiers. */
+  defaultResourceTypes?: readonly string[];
+};
+import {
+  NetworkRuleAst,
+  NetworkRuleModifierAst,
+  NetworkRulePatternAst,
+  TokenizedNetworkRule,
+} from '../types/network-rule';
 import {
   NetworkInstrumentationObserver,
   NetworkModifierIssueReason,
@@ -62,7 +72,11 @@ const UNSUPPORTED_MODIFIER_KEYS = new Set([
   'urltransform',
 ]);
 
-export function parseEasylistLine(line: string, observer?: NetworkInstrumentationObserver): DnrRuleWithoutId | null {
+export function parseEasylistLine(
+  line: string,
+  observer?: NetworkInstrumentationObserver,
+  options?: ParseEasylistOptions,
+): DnrRuleWithoutId | null {
   const tokenized = tokenizeEasylistNetworkRule(line, observer);
   if (!tokenized) {
     return null;
@@ -73,7 +87,7 @@ export function parseEasylistLine(line: string, observer?: NetworkInstrumentatio
     return null;
   }
 
-  return compileNetworkRuleAst(ast);
+  return compileNetworkRuleAst(ast, options);
 }
 
 export function tokenizeEasylistNetworkRule(
@@ -127,7 +141,7 @@ export function parseEasylistNetworkRuleAst(
   };
 }
 
-export function compileNetworkRuleAst(ast: NetworkRuleAst): DnrRuleWithoutId {
+export function compileNetworkRuleAst(ast: NetworkRuleAst, options?: ParseEasylistOptions): DnrRuleWithoutId {
   const includeResourceTypes = new Set<string>();
   const excludedResourceTypes = new Set<string>();
   const initiatorDomains = new Set<string>();
@@ -182,7 +196,12 @@ export function compileNetworkRuleAst(ast: NetworkRuleAst): DnrRuleWithoutId {
     condition: {
       urlFilter: compilePattern(ast.pattern),
       isUrlFilterCaseSensitive: caseSensitive || undefined,
-      resourceTypes: resolveResourceTypes(includeResourceTypes, excludedResourceTypes, forceAllResourceTypes),
+      resourceTypes: resolveResourceTypes(
+        includeResourceTypes,
+        excludedResourceTypes,
+        forceAllResourceTypes,
+        options?.defaultResourceTypes,
+      ),
       domainType,
       initiatorDomains: initiatorDomains.size ? [...initiatorDomains] : undefined,
       excludedInitiatorDomains: excludedInitiatorDomains.size ? [...excludedInitiatorDomains] : undefined,
@@ -210,10 +229,7 @@ function getIgnorableReason(line: string): NetworkRuleSkipReason | null {
   return null;
 }
 
-function parseModifierAst(
-  modifiers: string[],
-  observer?: NetworkInstrumentationObserver,
-): NetworkRuleModifierAst[] {
+function parseModifierAst(modifiers: string[], observer?: NetworkInstrumentationObserver): NetworkRuleModifierAst[] {
   const parsed: NetworkRuleModifierAst[] = [];
 
   for (const modifier of modifiers) {
@@ -308,15 +324,26 @@ function sanitizeDomain(domain: string): string | null {
   return normalized;
 }
 
-function resolveResourceTypes(includeSet: Set<string>, excludeSet: Set<string>, forceAll = false): string[] {
-  const base = forceAll ? [...ALL_RESOURCE_TYPES] : includeSet.size ? [...includeSet] : [...DEFAULT_RESOURCE_TYPES];
+function resolveResourceTypes(
+  includeSet: Set<string>,
+  excludeSet: Set<string>,
+  forceAll = false,
+  defaultTypes: readonly string[] = DEFAULT_RESOURCE_TYPES,
+): string[] | undefined {
+  const base = forceAll ? [...ALL_RESOURCE_TYPES] : includeSet.size ? [...includeSet] : [...defaultTypes];
   const filtered = base.filter((type) => !excludeSet.has(type));
   if (filtered.length) {
     return filtered;
   }
 
   const allFiltered = ALL_RESOURCE_TYPES.filter((type) => !excludeSet.has(type));
-  return allFiltered.length ? allFiltered : [...DEFAULT_RESOURCE_TYPES];
+  if (allFiltered.length) {
+    return allFiltered;
+  }
+
+  // All known resource types are excluded. Keep condition valid by omitting
+  // resourceTypes instead of returning an empty/contradictory fallback array.
+  return undefined;
 }
 
 function resolveUnknownModifierReason(normalizedModifier: string): NetworkModifierIssueReason {
@@ -342,7 +369,10 @@ function extractHostFromRule(rule: string): string | null {
   }
 
   const withoutPrefix = rule.slice(2).toLowerCase();
-  const rawHost = withoutPrefix.split(/[\/^?|]/)[0]?.replace(/^\*\.?/, '').replace(/^\./, '');
+  const rawHost = withoutPrefix
+    .split(/[\/^?|]/)[0]
+    ?.replace(/^\*\.?/, '')
+    .replace(/^\./, '');
 
   if (!rawHost) {
     return null;
