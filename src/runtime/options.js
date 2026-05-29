@@ -90,13 +90,13 @@ function renderSummary(settings) {
   settingsShell.dataset.protection = enabled ? 'on' : 'off';
   protectionMode.textContent = enabled ? 'Protection active' : 'Protection paused';
   if (!enabled) {
-    protectionNote.textContent = 'Master protection is off. Network, cosmetic, and badge controls are paused.';
+    protectionNote.textContent = 'All filtering paused.';
   } else if (!settings['zt.networkBlockingEnabled']) {
-    protectionNote.textContent = 'Network blocking is paused. Cosmetic filtering and badge updates can still run.';
+    protectionNote.textContent = 'Network blocking paused—cosmetic filtering and badges still active.';
   } else if (!isAnyBlockListEnabled(settings)) {
-    protectionNote.textContent = 'Network blocking is on, but no block lists are selected yet.';
+    protectionNote.textContent = 'Network blocking on, but no block lists selected.';
   } else {
-    protectionNote.textContent = 'Core filtering is on for all sites.';
+    protectionNote.textContent = 'All filtering active.';
   }
 
   setChipState(chipEnabled, enabled ? 'on' : 'off', enabled ? 'On' : 'Off');

@@ -68,10 +68,10 @@ function render(settings) {
   badgeInput.disabled = controlsDisabled;
 
   popupMasterPill.dataset.state = controlsDisabled ? 'off' : 'on';
-  popupMasterPill.textContent = controlsDisabled ? 'Paused' : 'Live';
+  popupMasterPill.textContent = controlsDisabled ? 'Paused' : 'Active';
   popupSummary.textContent = controlsDisabled
-    ? 'Protection is paused. Secondary controls are temporarily disabled.'
-    : 'Protection is active across your browsing session.';
+    ? 'Protection paused. All blocking and cleanup are off.'
+    : 'Protection active. Blocking and cleanup enabled.';
 }
 
 function normalizeHostFromUrl(url) {
@@ -164,7 +164,7 @@ function renderSiteControls(settings) {
   const whitelistActive = hostState === 'whitelisted';
 
   pauseHostBtn.textContent = pauseActive ? 'Resume on this site' : 'Pause on this site';
-  whitelistHostBtn.textContent = whitelistActive ? 'Enable on this site' : 'Disable on this site';
+  whitelistHostBtn.textContent = whitelistActive ? 'Remove from whitelist' : 'Skip this site';
   pauseHostBtn.dataset.active = pauseActive ? 'true' : 'false';
   whitelistHostBtn.dataset.active = whitelistActive ? 'true' : 'false';
 
@@ -190,7 +190,7 @@ function renderSiteControls(settings) {
   }
 
   if (whitelistActive) {
-    popupSiteNote.textContent = 'ZeroTrace is disabled on this site.';
+    popupSiteNote.textContent = 'ZeroTrace is skipped on this site.';
     return;
   }
 
@@ -341,7 +341,7 @@ async function init() {
     const whitelisted = siteControls.hostState?.state === 'whitelisted';
     applySiteAction({
       actionType: whitelisted ? 'zt-unwhitelist-host' : 'zt-whitelist-host',
-      successMessage: (host) => (whitelisted ? `Enabled on ${host}` : `Disabled on ${host}`),
+      successMessage: (host) => (whitelisted ? `Removed skip on ${host}` : `Skipped ${host}`),
     });
   });
 

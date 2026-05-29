@@ -13,7 +13,7 @@
           <p class="eyebrow">ZeroTrace</p>
           <h1 id="popup-title">Quick controls</h1>
           <p id="popup-summary" class="popup-summary">Protection is active across your browsing session.</p>
-          <p id="popup-host" class="popup-host">Current site: checking…</p>
+          <p id="popup-host" class="popup-host">Current site: loading…</p>
         </div>
         <div id="popup-master-pill" class="popup-pill" data-state="on">Live</div>
       </section>
@@ -21,7 +21,7 @@
       <section class="popup-card" aria-labelledby="popup-live-title">
         <div class="section-heading">
           <div>
-            <p class="panel-label">Available now</p>
+            <p class="panel-label">Your settings</p>
             <h2 id="popup-live-title">Protection toggles</h2>
           </div>
         </div>
@@ -29,8 +29,8 @@
         <div class="toggle-list">
           <label class="setting-row setting-row-primary" for="popup-enabled">
             <span class="setting-copy">
-              <span class="setting-title">Enable ZeroTrace</span>
-              <span class="setting-description">Turns current protection behavior on or off.</span>
+              <span class="setting-title">Protection</span>
+              <span class="setting-description">Master switch—turns all blocking and cleanup on/off.</span>
             </span>
             <span class="toggle-wrap">
               <input id="popup-enabled" type="checkbox" />
@@ -41,7 +41,7 @@
           <label class="setting-row" for="popup-network">
             <span class="setting-copy">
               <span class="setting-title">Network blocking</span>
-              <span class="setting-description">Ruleset-based request blocking.</span>
+              <span class="setting-description">Blocks ads and trackers before they load.</span>
             </span>
             <span class="toggle-wrap">
               <input id="popup-network" type="checkbox" />
@@ -76,14 +76,14 @@
       <section class="popup-card" aria-labelledby="popup-site-title">
         <div class="section-heading">
           <div>
-            <p class="panel-label">Per-site</p>
+            <p class="panel-label">This site</p>
             <h2 id="popup-site-title">Site controls</h2>
           </div>
         </div>
 
         <div class="disabled-actions" aria-describedby="popup-site-note">
           <button type="button" id="popup-pause-host" class="ghost-button">Pause on this site</button>
-          <button type="button" id="popup-whitelist-host" class="ghost-button">Disable on this site</button>
+          <button type="button" id="popup-whitelist-host" class="ghost-button">Skip this site</button>
         </div>
 
         <p id="popup-site-note" class="preview-note">Use these controls for this site across tabs.</p>
