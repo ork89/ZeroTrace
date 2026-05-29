@@ -190,7 +190,7 @@ function renderSiteControls(settings) {
   }
 
   if (whitelistActive) {
-    popupSiteNote.textContent = 'ZeroTrace is disabled on this site.';
+    popupSiteNote.textContent = 'ZeroTrace is skipped on this site.';
     return;
   }
 
@@ -341,7 +341,7 @@ async function init() {
     const whitelisted = siteControls.hostState?.state === 'whitelisted';
     applySiteAction({
       actionType: whitelisted ? 'zt-unwhitelist-host' : 'zt-whitelist-host',
-      successMessage: (host) => (whitelisted ? `Enabled on ${host}` : `Disabled on ${host}`),
+      successMessage: (host) => (whitelisted ? `Removed skip on ${host}` : `Skipped ${host}`),
     });
   });
 

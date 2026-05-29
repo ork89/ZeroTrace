@@ -29,5 +29,5 @@
 ## Release sign-off
 
 - Build/test gates completed: Yes (CI `checks` workflow passed on `main` at 2026-05-22; runs include `npm run typecheck`, `npm test`, and `npm run build`)
-- Manual QA completed: Yes (2026-05-22, Playwright-driven QA in clean profile with only ZeroTrace loaded; YouTube baseline/UI, cosmetic sanity, per-site pause/resume, and disable/re-enable fallback checks passed)
+- Manual QA completed: Yes (2026-05-22, clean profile with only ZeroTrace loaded; YouTube baseline/UI, cosmetic sanity, per-site pause/resume, and disable/re-enable fallback checks passed)
 - Rollback contact / owner: _TBD_

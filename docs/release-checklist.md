@@ -20,7 +20,7 @@ Use this checklist for every v1 release candidate.
 ## 2) Manual QA critical flows (release sign-off)
 
 Run on a clean browser profile with only ZeroTrace enabled.
-Validation run recorded on 2026-05-22 using Playwright with extension loaded from `dist/`.
+Validation run recorded on 2026-05-22 in a clean profile with extension loaded from `dist/`.
 
 - [x] **YouTube baseline:** open multiple videos and verify no visible pre-roll/mid-roll ads in normal playback flow.
 - [x] **YouTube UI integrity:** verify playback controls, seeking, quality changes, and full-screen still work after ad events.
