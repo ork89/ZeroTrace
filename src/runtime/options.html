@@ -13,15 +13,15 @@
           <p class="eyebrow">ZeroTrace Control Center</p>
           <h1 id="settings-title">Privacy controls that feel deliberate, not buried.</h1>
           <p class="hero-text">
-            Tune ZeroTrace for aggressive blocking, cleaner pages, and quieter browsing. Core controls and block-list
-            selection are live here, with appearance and behavior preferences now included.
+            Customize what ZeroTrace blocks: ads, trackers, annoyances, and social widgets. Pick which lists to use and
+            adjust the UI to your preference.
           </p>
         </div>
 
         <aside class="hero-status" aria-labelledby="protection-heading">
           <p class="panel-label" id="protection-heading">Protection status</p>
           <p id="zt-protection-mode" class="protection-mode">Protection active</p>
-          <p id="zt-protection-note" class="protection-note">Core filtering is on for all sites.</p>
+          <p id="zt-protection-note" class="protection-note">All filtering active</p>
 
           <div class="status-grid" aria-label="Current state summary">
             <div class="status-chip" id="chip-enabled" data-state="on">
@@ -48,10 +48,9 @@
         <section class="settings-card" aria-labelledby="core-controls-title">
           <div class="section-heading">
             <div>
-              <p class="panel-label">Live controls</p>
+              <p class="panel-label">ESSENTIAL</p>
               <h2 id="core-controls-title">Core protection</h2>
             </div>
-            <p class="section-copy">These toggles map to the current implemented extension settings.</p>
           </div>
 
           <fieldset class="settings-group">
@@ -59,8 +58,8 @@
 
             <label class="setting-row setting-row-primary" for="zt-enabled">
               <span class="setting-copy">
-                <span class="setting-title">Enable ZeroTrace</span>
-                <span class="setting-description">Master switch for all current blocking and cleanup behavior.</span>
+                <span class="setting-title">Protection</span>
+                <span class="setting-description">Master switch—turns all blocking and cleanup on/off.</span>
               </span>
               <span class="toggle-wrap">
                 <input id="zt-enabled" type="checkbox" />
@@ -70,10 +69,8 @@
 
             <label class="setting-row" for="zt-network">
               <span class="setting-copy">
-                <span class="setting-title">Network ads and trackers</span>
-                <span class="setting-description"
-                  >Applies the extension ruleset to block requests before they load.</span
-                >
+                <span class="setting-title">Block ads and trackers</span>
+                <span class="setting-description">Blocks ads and trackers before they load on the page.</span>
               </span>
               <span class="toggle-wrap">
                 <input id="zt-network" type="checkbox" />
@@ -94,7 +91,7 @@
 
             <label class="setting-row" for="zt-badge">
               <span class="setting-copy">
-                <span class="setting-title">Toolbar badge counter</span>
+                <span class="setting-title">Blocked count badge</span>
                 <span class="setting-description">Shows the current blocked count on the extension action badge.</span>
               </span>
               <span class="toggle-wrap">
@@ -109,10 +106,9 @@
           <article class="settings-card" aria-labelledby="list-controls-title">
             <div class="section-heading">
               <div>
-                <p class="panel-label">Available now</p>
+                <p class="panel-label">ADVANCED</p>
                 <h2 id="list-controls-title">Block-list controls</h2>
               </div>
-              <span class="feature-pill feature-pill-live">Live</span>
             </div>
 
             <fieldset class="settings-group" aria-describedby="list-controls-note">
@@ -121,10 +117,7 @@
               <label class="setting-row" for="zt-list-ads">
                 <span class="setting-copy">
                   <span class="setting-title">Ads list</span>
-                  <span class="setting-description"
-                    >Controls EasyList network rules and YouTube ad network requests (DNR). YouTube DOM-level ad removal
-                    follows the cosmetic and network master toggles.</span
-                  >
+                  <span class="setting-description">Blocks ads on websites and YouTube.</span>
                 </span>
                 <span class="toggle-wrap">
                   <input id="zt-list-ads" type="checkbox" />
@@ -135,7 +128,7 @@
               <label class="setting-row" for="zt-list-trackers">
                 <span class="setting-copy">
                   <span class="setting-title">Tracker list</span>
-                  <span class="setting-description">Controls EasyPrivacy tracking and telemetry protections.</span>
+                  <span class="setting-description">Blocks tracking cookies and data collection.</span>
                 </span>
                 <span class="toggle-wrap">
                   <input id="zt-list-trackers" type="checkbox" />
@@ -167,18 +160,16 @@
             </fieldset>
 
             <p id="list-controls-note" class="preview-note">
-              All four block-list categories are live. Disable specific categories anytime without turning off network
-              filtering.
+              You can toggle each category on or off independently without affecting network blocking.
             </p>
           </article>
 
           <article class="settings-card" aria-labelledby="experience-title">
             <div class="section-heading">
               <div>
-                <p class="panel-label">Available now</p>
+                <p class="panel-label">PERSONALIZE</p>
                 <h2 id="experience-title">Appearance and behavior</h2>
               </div>
-              <span class="feature-pill feature-pill-live">Live</span>
             </div>
 
             <div class="preview-stack" aria-describedby="experience-note">
@@ -194,7 +185,7 @@
               <label class="setting-row" for="zt-notifications">
                 <span class="setting-copy">
                   <span class="setting-title">Blocking notifications</span>
-                  <span class="setting-description">Surface notable site interventions and update confirmations.</span>
+                  <span class="setting-description">Show notifications when ZeroTrace blocks access to a site.</span>
                 </span>
                 <span class="toggle-wrap">
                   <input id="zt-notifications" type="checkbox" />
@@ -204,10 +195,8 @@
 
               <label class="setting-row" for="zt-debug-diagnostics">
                 <span class="setting-copy">
-                  <span class="setting-title">Runtime diagnostics logging</span>
-                  <span class="setting-description"
-                    >When enabled, emits structured runtime diagnostics events to the extension console.</span
-                  >
+                  <span class="setting-title">Debug: Runtime logs</span>
+                  <span class="setting-description">Log technical details to console for troubleshooting.</span>
                 </span>
                 <span class="toggle-wrap">
                   <input id="zt-debug-diagnostics" type="checkbox" />
@@ -229,9 +218,7 @@
               </label>
             </div>
 
-            <p id="experience-note" class="preview-note">
-              Theme preferences, compact popup density, and optional notifications are fully configurable.
-            </p>
+            <p id="experience-note" class="preview-note">Customize your theme, notifications, and interface density.</p>
           </article>
         </section>
 
@@ -244,20 +231,12 @@
             <button type="button" id="zt-refresh-diagnostics" class="button-secondary">Refresh</button>
           </div>
           <p class="preview-note">
-            Counters include selector apply outcomes, scriptlet run/failure/ignored totals, host bypass transitions, and
-            build unsupported summary availability.
+            Shows technical counters for troubleshooting: blocked selectors, script runs, and bypass events.
           </p>
           <pre id="zt-diagnostics-snapshot" class="diagnostics-snapshot" aria-live="polite">{}</pre>
         </section>
 
         <div class="actions-panel">
-          <div class="actions-copy">
-            <p class="panel-label">Persistence</p>
-            <p class="actions-note">
-              Save applies all controls above, including appearance and behavior preferences.
-            </p>
-          </div>
-
           <div class="actions">
             <button type="submit" id="save-btn">Save changes</button>
             <button type="button" id="reset-btn" class="button-secondary">Reset defaults</button>

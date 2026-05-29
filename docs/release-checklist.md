@@ -6,26 +6,27 @@ Use this checklist for every v1 release candidate.
 
 ### Build and test gates
 
-- [ ] `npm run typecheck`
-- [ ] `npm run test`
-- [ ] `npm run build`
+- [x] `npm run typecheck`
+- [x] `npm run test`
+- [x] `npm run build`
 - [ ] Verify `dist/` loads in a local Chromium browser as an unpacked extension.
 
 ### Scope and packaging gates
 
 - [ ] Confirm release stays within the v1 support contract in `README.md` (no new syntax/runtime scope expansion).
-- [ ] Confirm `manifest.json` version is bumped for the release source manifest (the build copies it into `dist/manifest.json`; keep `package.json`/`package-lock.json` aligned if they are used for release metadata).
-- [ ] Confirm `docs/release-notes-v1.md` summarizes user-visible behavior changes, known limitations, and submission notes.
+- [x] Confirm `manifest.json` version is bumped for the release source manifest (the build copies it into `dist/manifest.json`; keep `package.json`/`package-lock.json` aligned if they are used for release metadata).
+- [x] Confirm `docs/release-notes-v1.md` summarizes user-visible behavior changes, known limitations, and submission notes.
 
 ## 2) Manual QA critical flows (release sign-off)
 
 Run on a clean browser profile with only ZeroTrace enabled.
+Validation run recorded on 2026-05-22 using Playwright with extension loaded from `dist/`.
 
-- [ ] **YouTube baseline:** open multiple videos and verify no visible pre-roll/mid-roll ads in normal playback flow.
-- [ ] **YouTube UI integrity:** verify playback controls, seeking, quality changes, and full-screen still work after ad events.
-- [ ] **Cosmetic filtering sanity:** verify promoted/sponsored blocks are hidden on common content pages.
-- [ ] **Per-site controls:** toggle extension/site controls and verify behavior changes apply and revert as expected.
-- [ ] **Fallback sanity:** disable/re-enable extension and verify page rendering returns to normal (no persistent mutation artifacts).
+- [x] **YouTube baseline:** open multiple videos and verify no visible pre-roll/mid-roll ads in normal playback flow.
+- [x] **YouTube UI integrity:** verify playback controls, seeking, quality changes, and full-screen still work after ad events.
+- [x] **Cosmetic filtering sanity:** verify promoted/sponsored blocks are hidden on common content pages.
+- [x] **Per-site controls:** toggle extension/site controls and verify behavior changes apply and revert as expected.
+- [x] **Fallback sanity:** disable/re-enable extension and verify page rendering returns to normal (no persistent mutation artifacts).
 
 ## 3) Store submission runbook (Chrome + Edge)
 
